@@ -10,4 +10,6 @@ dependencies = [
     "pandas>=2.2",
     "pyarrow>=15",
     "nltk>=3.9",
+    "fastembed>=0.9.1",
+    "faiss-cpu>=1.16.0",
 ]
