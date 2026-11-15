@@ -1,7 +1,13 @@
 [project]
 name = "proyecto-1b-ri"
 version = "0.1.0"
-description = "Add your description here"
+description = "Sistema de Recuperación de Información: Jaccard, TF-IDF, BM25 y embeddings sobre FiQA-2018"
 readme = "README.md"
-requires-python = ">=3.12.16"
-dependencies = []
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "huggingface-hub>=0.24",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "pyarrow>=15",
+    "nltk>=3.9",
+]

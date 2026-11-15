@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Datos pesados (se regeneran con backend/scripts/download_fiqa.py)
+backend/data/
