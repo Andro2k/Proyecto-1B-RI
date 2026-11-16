@@ -4,6 +4,7 @@
 ### Integrantes
 - Danny Molina
 - J. Luis Andino
+- Luis Morocho
 
 ## Objetivo
 Diseñar e implementar un sistema de recuperación de información que permita comparar modelos clásicos
