@@ -1,9 +1,17 @@
 """Generación de embeddings con un modelo preentrenado (fastembed = ONNX, sin torch: liviano para Render).
 Todos los vectores salen normalizados (norma 1), así el producto interno equivale al coseno."""
+import os
+from pathlib import Path
+
 import numpy as np
 
 DEFAULT_MODEL = "sentence-transformers/all-MiniLM-L6-v2"  # 384 dimensiones
 DEFAULT_MAX_LENGTH = 256  # tokens; el p95 de FiQA son ~370 palabras, se trunca el final de los más largos
+
+
+# Carpeta del modelo ONNX: dentro del proyecto para que persista entre el build y la ejecución.
+# Se puede cambiar con la variable de entorno MODEL_CACHE_DIR.
+CACHE_DIR = Path(os.getenv("MODEL_CACHE_DIR", Path(__file__).resolve().parents[1] / "models_cache"))
 
 
 def _normalize(x: np.ndarray) -> np.ndarray:
@@ -17,7 +25,7 @@ class FastEmbedder:
         from fastembed import TextEmbedding  # import perezoso: solo se necesita al embeber
 
         self.model_name = model_name
-        self.model = TextEmbedding(model_name=model_name)
+        self.model = TextEmbedding(model_name=model_name, cache_dir=str(CACHE_DIR))
         # fastembed no expone max_length: se fija la truncación directamente en el tokenizador ONNX
         onnx_model = self.model.model
         if hasattr(onnx_model, "_ensure_tokenizer"):

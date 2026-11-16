@@ -1,0 +1,12 @@
+# Despliegue en Render (plan gratuito). Crear un "Blueprint" apuntando a este repositorio.
+# Si Render se queda sin memoria (512 MB), alternativa gratuita con más RAM: Hugging Face Spaces (Docker).
+services:
+  - type: web
+    name: ri-fiqa
+    runtime: python
+    plan: free
+    # El build instala dependencias y descarga el modelo ONNX a backend/models_cache (persiste al ejecutar).
+    buildCommand: pip install -r requirements.txt && python -m backend.scripts.prefetch_model
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    # La versión de Python sale de .python-version (3.12.x); si Render no la reconoce, fija PYTHON_VERSION en el panel.

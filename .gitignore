@@ -11,3 +11,6 @@ wheels/
 
 # Datos pesados (se regeneran con backend/scripts/download_fiqa.py)
 backend/data/
+
+# Modelo ONNX descargado por fastembed (se baja en el build)
+backend/models_cache/
