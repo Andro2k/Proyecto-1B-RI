@@ -68,15 +68,34 @@ class InvertedIndex:
         return len(self.postings[term][0]) if term in self.postings else 0
 
     # ---- persistencia -------------------------------------------------
+    # Los postings se guardan en dos arreglos contiguos (formato CSR) y se leen de una sola vez:
+    # cargarlos término por término fragmenta la memoria y triplica el uso de RAM (importa en Render).
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
+        terms = list(self.postings)
+        lengths = np.array([len(self.postings[t][0]) for t in terms], dtype=np.int64)
+        offsets = np.concatenate(([0], np.cumsum(lengths)))
+        docs_all = np.concatenate([self.postings[t][0] for t in terms]).astype(np.int32, copy=False)
+        tfs_all = np.concatenate([self.postings[t][1] for t in terms]).astype(np.int32, copy=False)
+        state = {
+            "doc_ids": self.doc_ids, "doc_len": self.doc_len, "doc_nterms": self.doc_nterms,
+            "csr": (terms, offsets, docs_all, tfs_all),
+        }
         with gzip.open(path, "wb") as f:
-            state = {k: v for k, v in self.__dict__.items() if k != "id_rank"}
             pickle.dump(state, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     @classmethod
     def load(cls, path: Path) -> "InvertedIndex":
-        idx = cls()
         with gzip.open(path, "rb") as f:
-            idx.__dict__.update(pickle.load(f))
+            raw = f.read()
+        state = pickle.loads(raw)
+        del raw
+        idx = cls()
+        idx.doc_ids, idx.doc_len, idx.doc_nterms = state["doc_ids"], state["doc_len"], state["doc_nterms"]
+        if "csr" in state:
+            terms, offsets, docs_all, tfs_all = state["csr"]
+            idx.postings = {t: (docs_all[offsets[i]:offsets[i + 1]], tfs_all[offsets[i]:offsets[i + 1]])
+                            for i, t in enumerate(terms)}
+        else:  # formato anterior (un par de arreglos por término)
+            idx.postings = state["postings"]
         return idx
