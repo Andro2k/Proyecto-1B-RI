@@ -1,40 +1,40 @@
 {
   "n": 648,
   "mean_a": 0.3095593644375456,
-  "mean_b": 0.20740647193921363,
-  "a_gana": 394,
+  "mean_b": 0.20417441212347284,
+  "a_gana": 393,
   "b_gana": 147,
-  "empates": 107,
-  "diff_media": 0.10215289249833201,
+  "empates": 108,
+  "diff_media": 0.1053849523140728,
   "ic95": [
-    0.07996901441436122,
-    0.12454465789849302
+    0.08340951812904501,
+    0.1275381737560197
   ],
   "buckets": {
     "consulta corta (<= 6 palabras)": {
       "n": 106,
       "a": 0.23005741794162068,
-      "b": 0.16016803384200062
+      "b": 0.15705259583823442
     },
     "consulta media (7-12 palabras)": {
       "n": 312,
       "a": 0.3227201061703027,
-      "b": 0.22197179819183482
+      "b": 0.22019434546080333
     },
     "consulta larga (> 12 palabras)": {
       "n": 230,
       "a": 0.32834655968949267,
-      "b": 0.20941904866741695
+      "b": 0.2041600352755953
     },
     "contiene cifras": {
       "n": 73,
       "a": 0.27352045569006445,
-      "b": 0.20245628501746493
+      "b": 0.1888034118398466
     },
     "contiene siglas/tickers (MAYÚSCULAS)": {
       "n": 118,
       "a": 0.41383657470736274,
-      "b": 0.3110613930395133
+      "b": 0.3032359718331556
     }
   },
   "a_mejora_mas": [
@@ -45,14 +45,14 @@
       "b": 0.0
     },
     {
-      "qid": "2076",
-      "query": "Can vet / veterinary bills be considered deductions (tax-deductible) for Income Tax purposes [Canada]?",
+      "qid": "6800",
+      "query": "I don't live in America. How can I buy IPO stock of newly listed companies in the United States?",
       "a": 1.0,
       "b": 0.0
     },
     {
-      "qid": "6800",
-      "query": "I don't live in America. How can I buy IPO stock of newly listed companies in the United States?",
+      "qid": "2076",
+      "query": "Can vet / veterinary bills be considered deductions (tax-deductible) for Income Tax purposes [Canada]?",
       "a": 1.0,
       "b": 0.0
     },
@@ -60,13 +60,13 @@
       "qid": "15",
       "query": "Can I send a money order from USPS as a business?",
       "a": 1.0,
-      "b": 0.014492753623188406
+      "b": 0.0125
     },
     {
-      "qid": "2747",
-      "query": "What evidence do I need to declare tutoring income on my income tax?",
+      "qid": "9824",
+      "query": "Where can end-of-day data be downloaded for corporate bonds?",
       "a": 1.0,
-      "b": 0.017543859649122806
+      "b": 0.02
     }
   ],
   "a_empeora_mas": [
@@ -77,15 +77,15 @@
       "b": 1.0
     },
     {
-      "qid": "5155",
-      "query": "For insurance, why should you refuse $4,000/year for only 10 years and prefer $500/year indefinitely?",
-      "a": 0.047619047619047616,
-      "b": 1.0
-    },
-    {
       "qid": "10601",
       "query": "Bitcoin Cost Basis Purchases",
       "a": 0.07142857142857142,
+      "b": 1.0
+    },
+    {
+      "qid": "4447",
+      "query": "Should I always hold short term bonds till maturity?",
+      "a": 0.09090909090909091,
       "b": 1.0
     },
     {
@@ -95,9 +95,9 @@
       "b": 1.0
     },
     {
-      "qid": "4447",
-      "query": "Should I always hold short term bonds till maturity?",
-      "a": 0.09090909090909091,
+      "qid": "6849",
+      "query": "What do the points in a stock market index epresent?",
+      "a": 0.125,
       "b": 1.0
     }
   ]
