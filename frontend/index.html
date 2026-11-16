@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recuperación de Información · FiQA-2018</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Recuperación de Información</h1>
+      <p>Comparador de modelos sobre FiQA-2018 (preguntas y respuestas financieras en inglés)</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="banner" class="banner" hidden></div>
+
+    <form id="form" autocomplete="off">
+      <input id="q" type="search" maxlength="500" required placeholder="Escribe una consulta en inglés, p. ej. where should I park my emergency fund?">
+      <div class="controls">
+        <label>Modelo
+          <select id="model"></select>
+        </label>
+        <label>Top-n
+          <select id="k"><option>5</option><option selected>10</option><option>20</option></select>
+        </label>
+        <button type="submit" class="primary">Buscar</button>
+      </div>
+    </form>
+
+    <div id="samples" class="samples"></div>
+
+    <nav class="tabs">
+      <button data-view="results" class="active">Resultados</button>
+      <button data-view="metrics">Métricas de evaluación</button>
+    </nav>
+
+    <section id="view-results"><p class="muted">Escribe una consulta, o prueba con uno de los ejemplos.</p></section>
+    <section id="view-metrics" hidden></section>
+  </main>
+
+  <dialog id="doc"><article></article><button id="doc-close" class="primary">Cerrar</button></dialog>
+  <script src="app.js"></script>
+</body>
+</html>
