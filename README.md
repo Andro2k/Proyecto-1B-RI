@@ -119,12 +119,11 @@ Cuando corras build_index y try_models, pásame la salida. Con eso pasamos al D�
 uv run python -m backend.tests.test_evaluation
 uv run python -m backend.scripts.run_eval
 ```
-> [!IMPORTANT] evaluation.py: 
-Precision@k y Recall@k por consulta (k = 5, 10 y 20), AP por consulta y MAP@100 para todo el sistema. Recibe cualquier función search(query, k), así que los embeddings se conectarán sin cambios.
+> [!IMPORTANT] 
+> evaluation.py: Precision@k y Recall@k por consulta (k = 5, 10 y 20), AP por consulta y MAP@100 para todo el sistema. Recibe cualquier función search(query, k), así que los embeddings se conectarán sin cambios.
 
-> [!IMPORTANT] test_evaluation.py: 
-verifica las métricas contra un ejemplo calculado a mano.
-run_eval.py: evalúa Jaccard, TF-IDF y BM25 sobre las 648 consultas de test, imprime una tabla comparativa y guarda backend/artifacts/metrics.json (con el detalle por consulta) para la web.
+> [!IMPORTANT] 
+> test_evaluation.py: verifica las métricas contra un ejemplo calculado a mano. run_eval.py: evalúa Jaccard, TF-IDF y BM25 sobre las 648 consultas de test, imprime una tabla comparativa y guarda backend/artifacts/metrics.json (con el detalle por consulta) para la web.
 
 ### Embeddings con FAISS.
 ```Powershell
@@ -149,5 +148,6 @@ uv run python -m backend.scripts.run_eval
 uv run python -m backend.scripts.compare_models --a embeddings --b bm25
 ```
 
-> [!CAUTION] No comparar scores crudos entre modelos. Las clases de BM25 y embeddings insisten en que BM25 y coseno tienen escalas distintas. En la vista de comparación de la web conviene mostrar posiciones y solapamiento de IDs, y avisar que los scores no son comparables. Los qrels de FiQA son incompletos. Un documento sin juicio no es necesariamente no relevante (pooling). Un modelo semántico puede recuperar documentos útiles que los qrels no marcan, y eso castiga sus métricas. Vale la pena mencionarlo en el análisis.
+> [!CAUTION] 
+> No comparar scores crudos entre modelos. Las clases de BM25 y embeddings insisten en que BM25 y coseno tienen escalas distintas. En la vista de comparación de la web conviene mostrar posiciones y solapamiento de IDs, y avisar que los scores no son comparables. Los qrels de FiQA son incompletos. Un documento sin juicio no es necesariamente no relevante (pooling). Un modelo semántico puede recuperar documentos útiles que los qrels no marcan, y eso castiga sus métricas. Vale la pena mencionarlo en el análisis.
 
