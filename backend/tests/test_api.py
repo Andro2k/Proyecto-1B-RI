@@ -66,6 +66,17 @@ def main() -> None:
         assert c.get("/api/search", params={"q": q, "k": 99}).status_code == 422
         none = c.get("/api/search", params={"q": "zzzz qqqq", "model": "bm25"}).json()  # sin términos en común
         assert none["results"] == []
+    # Si el modelo de embeddings no carga, el sistema debe seguir sirviendo los modelos léxicos
+    class BrokenEmbedder:
+        def embed_query(self, text):
+            raise RuntimeError("sin modelo")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        app = create_app(make_artifacts(tmp), embedder=BrokenEmbedder(), docs_cache_dir=tmp, frontend_dir=tmp / "x", load_async=False)
+        h = TestClient(app).get("/health").json()
+        assert h["ready"] and h["error"] is None and "embeddings" not in h["models"] and "sin modelo" in h["warnings"][0], h
+        assert TestClient(app).get("/api/search", params={"q": "emergency bank", "model": "bm25"}).status_code == 200
     print("OK API: salud, modelos, búsqueda (4 modelos), comparación, documento, métricas y validaciones")
 
 

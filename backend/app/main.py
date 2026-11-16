@@ -50,6 +50,7 @@ class Runtime:
     def __init__(self, artifacts: Path, embedder=None, docs_cache_dir: Path | None = None) -> None:
         self.artifacts, self.embedder, self.docs_cache_dir = artifacts, embedder, docs_cache_dir
         self.ready, self.error = False, None
+        self.warnings: list[str] = []
         self.models: dict = {}
         self.docs: DocStore | None = None
         self.queries: dict[str, str] = {}
@@ -75,7 +76,11 @@ class Runtime:
                 self.metrics = json.loads((a / "metrics.json").read_text(encoding="utf-8"))
             self.samples = self._build_samples()
             if "embeddings" in self.models:  # carga el modelo ONNX ahora y no en la primera consulta del usuario
-                self.models["embeddings"].search("calentamiento", 1)
+                try:
+                    self.models["embeddings"].search("calentamiento", 1)
+                except Exception as exc:  # sin modelo (red, memoria...) el resto del sistema sigue funcionando
+                    self.models.pop("embeddings")
+                    self.warnings.append(f"Los embeddings no están disponibles ({type(exc).__name__}: {exc}).")
             _release_memory()
             self.ready = True
         except Exception as exc:  # se muestra en /health para poder diagnosticar el despliegue
@@ -139,7 +144,7 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
 
     @app.get("/health")
     def health():
-        return {"ready": rt.ready, "error": rt.error, "models": list(rt.models)}
+        return {"ready": rt.ready, "error": rt.error, "warnings": rt.warnings, "models": list(rt.models)}
 
     @app.get("/api/models")
     def models():
