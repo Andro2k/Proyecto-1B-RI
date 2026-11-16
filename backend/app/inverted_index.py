@@ -1,8 +1,10 @@
 """Índice invertido: término -> (doc_idx[], tf[]), más estadísticas de cada documento."""
 import gzip
 import pickle
+from functools import cached_property
 from collections import Counter, defaultdict
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 
@@ -18,13 +20,18 @@ class InvertedIndex:
 
     # ---- construcción -------------------------------------------------
     @classmethod
-    def build(cls, corpus: dict[str, dict[str, str]], progress_every: int = 10000) -> "InvertedIndex":
+    def build(
+        cls,
+        corpus: dict[str, dict[str, str]],
+        progress_every: int = 10000,
+        analyzer: Callable[[str], list[str]] = preprocess,
+    ) -> "InvertedIndex":
         idx = cls()
         tmp: dict[str, tuple[list[int], list[int]]] = defaultdict(lambda: ([], []))
         lens, nterms = [], []
         for i, (doc_id, doc) in enumerate(corpus.items()):
             idx.doc_ids.append(doc_id)
-            counts = Counter(preprocess(f"{doc['title']} {doc['text']}"))
+            counts = Counter(analyzer(f"{doc['title']} {doc['text']}"))
             lens.append(sum(counts.values()))
             nterms.append(len(counts))
             for term, tf in counts.items():
@@ -49,6 +56,14 @@ class InvertedIndex:
     def avgdl(self) -> float:
         return float(self.doc_len.mean())
 
+    @cached_property
+    def id_rank(self) -> np.ndarray:
+        """Posición de cada documento al ordenar sus IDs como cadenas (desempate determinista)."""
+        order = np.argsort(np.array(self.doc_ids, dtype=object), kind="stable")
+        rank = np.empty(len(order), dtype=np.int64)
+        rank[order] = np.arange(len(order))
+        return rank
+
     def df(self, term: str) -> int:
         return len(self.postings[term][0]) if term in self.postings else 0
 
@@ -56,7 +71,8 @@ class InvertedIndex:
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with gzip.open(path, "wb") as f:
-            pickle.dump(self.__dict__, f, protocol=pickle.HIGHEST_PROTOCOL)
+            state = {k: v for k, v in self.__dict__.items() if k != "id_rank"}
+            pickle.dump(state, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     @classmethod
     def load(cls, path: Path) -> "InvertedIndex":

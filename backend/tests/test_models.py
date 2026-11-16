@@ -27,8 +27,8 @@ def naive(index_docs, q_terms):
     for d, c in docs.items():
         inter = set(c) & set(qc)
         out["jaccard"][d] = len(inter) / len(set(c) | set(qc))
-        idf = lambda t: math.log10(n / df[t])
-        w = lambda tf, t: (1 + math.log10(tf)) * idf(t)
+        idf = lambda t: math.log(n / df[t]) + 1.0
+        w = lambda tf, t: tf * idf(t)
         dn = math.sqrt(sum(w(tf, t) ** 2 for t, tf in c.items()))
         qn = math.sqrt(sum(w(tf, t) ** 2 for t, tf in qc.items() if t in df))
         dot = sum(w(qc[t], t) * w(c[t], t) for t in inter)
@@ -38,7 +38,7 @@ def naive(index_docs, q_terms):
         for t in set(qc):
             if t in c:
                 bidf = math.log(1 + (n - df[t] + 0.5) / (df[t] + 0.5))
-                s += bidf * c[t] * 2.5 / (c[t] + 1.5 * (0.25 + 0.75 * dl / avgdl))
+                s += bidf * c[t] * 2.2 / (c[t] + 1.2 * (0.25 + 0.75 * dl / avgdl))
         out["bm25"][d] = s
     return out
 

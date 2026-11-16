@@ -1,6 +1,5 @@
 import numpy as np
 
-from ..preprocessing import preprocess
 from .base import RetrievalModel
 
 
@@ -11,7 +10,7 @@ class JaccardModel(RetrievalModel):
 
     def score_all(self, query: str) -> np.ndarray:
         idx = self.index
-        q_terms = set(preprocess(query))
+        q_terms = set(self.analyzer(query))
         common = np.zeros(idx.n_docs, dtype=np.float64)
         for t in q_terms:
             if t in idx.postings:

@@ -13,8 +13,8 @@ class BM25Model(RetrievalModel):
 
     name = "bm25"
 
-    def __init__(self, index: InvertedIndex, k1: float = 1.5, b: float = 0.75) -> None:
-        super().__init__(index)
+    def __init__(self, index: InvertedIndex, k1: float = 1.2, b: float = 0.75, analyzer=preprocess) -> None:
+        super().__init__(index, analyzer)
         self.k1, self.b = k1, b
         self.norm = k1 * (1.0 - b + b * index.doc_len / index.avgdl)  # factor por documento
 
@@ -25,7 +25,7 @@ class BM25Model(RetrievalModel):
     def score_all(self, query: str) -> np.ndarray:
         idx = self.index
         scores = np.zeros(idx.n_docs, dtype=np.float64)
-        for t in set(preprocess(query)):
+        for t in set(self.analyzer(query)):
             if t not in idx.postings:
                 continue
             docs, tfs = idx.postings[t]

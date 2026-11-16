@@ -24,4 +24,5 @@ class EmbeddingModel:
     def search(self, query: str, k: int = 10) -> list[tuple[str, float]]:
         vec = self.embedder.embed_query(query)
         scores, ids = self.index.search(vec, k)
-        return [(self.doc_ids[i], float(s)) for s, i in zip(scores[0], ids[0]) if i >= 0]
+        hits = [(self.doc_ids[i], float(s)) for s, i in zip(scores[0], ids[0]) if i >= 0]
+        return sorted(hits, key=lambda h: (-h[1], h[0]))  # mismo desempate que los modelos léxicos
