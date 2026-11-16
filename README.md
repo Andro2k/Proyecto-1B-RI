@@ -84,3 +84,71 @@ etc.)
 | README con instrucciones claras y URL | **Pendiente** | El `README.md` describe los requisitos, pero no cómo ejecutar el sistema ni incluye una URL de despliegue. |
 
 Ejecuté las pruebas existentes de modelos, métricas y FAISS: **las tres pasaron**. En resumen, la base técnica está avanzada y los resultados guardados favorecen a embeddings en el conjunto de prueba; para ajustarse al documento, lo prioritario es desarrollar la interfaz y desplegarla, completar las instrucciones del README y preparar el informe comparativo.
+
+## Pasos Usados hasta Ahora:
+### Preparacion del Entorno.
+Python en Entorno
+
+```powershell
+deactivate
+Remove-Item -Recurse -Force .venv
+uv python install 3.12
+uv venv --python 3.12
+.venv\Scripts\activate
+```
+Descarga de FiQA real en el entorno, el script busca los archivos por nombre y soporta parquet, jsonl y tsv por si el formato del repo difiere de lo esperado.
+
+```Powershell
+uv sync
+uv run python -m backend.scripts.download_fiqa
+uv run python -m backend.scripts.corpus_stats
+```
+
+### Preprocesamiento y el índice invertido.
+```Powershell
+uv run python -m backend.tests.test_models
+uv run python -m backend.scripts.build_index
+uv run python -m backend.scripts.try_models
+```
+Rendimiento: con un corpus sintético del mismo tamaño que FiQA (57k documentos), construir el índice tomó unos segundos y cada consulta unos 2 ms. Con FiQA real el tiempo de construcción será mayor por el stemming, pero no debería ser un problema. El archivo del índice pesó unos 12 MB en esa prueba; el real puede variar.
+
+Cuando corras build_index y try_models, pásame la salida. Con eso pasamos al Día 3 en adelante: la evaluación (Precision, Recall y MAP) sobre los qrels de test, para ver cómo se comportan estos tres modelos antes de agregar los embeddings.
+
+
+### Evaluación (Precision, Recall y MAP).
+```Powershell
+uv run python -m backend.tests.test_evaluation
+uv run python -m backend.scripts.run_eval
+```
+> [!IMPORTANT] 
+> evaluation.py: Precision@k y Recall@k por consulta (k = 5, 10 y 20), AP por consulta y MAP@100 para todo el sistema. Recibe cualquier función search(query, k), así que los embeddings se conectarán sin cambios.
+
+> [!IMPORTANT] 
+> test_evaluation.py: verifica las métricas contra un ejemplo calculado a mano. run_eval.py: evalúa Jaccard, TF-IDF y BM25 sobre las 648 consultas de test, imprime una tabla comparativa y guarda backend/artifacts/metrics.json (con el detalle por consulta) para la web.
+
+### Embeddings con FAISS.
+```Powershell
+uv run python -m backend.tests.test_vector_store
+uv run python -m backend.scripts.build_embeddings --limit 2000   # prueba rápida
+uv run python -m backend.scripts.build_embeddings                # corpus completo
+uv run python -m backend.scripts.run_eval
+```
+Decisiones de diseño:
+
+* **Modelo:** all-MiniLM-L6-v2 (384 dimensiones) con fastembed, que usa ONNX en lugar de torch. Es más liviano para Render y no necesita GPU. El modelo se cambia con --model.
+* **Vector DB:** FAISS con producto interno sobre vectores normalizados (equivale a coseno). Guardo el índice en fp16, que ocupa unos 44 MB frente a unos 88 MB del índice plano. Así cabe en GitHub sin problemas.
+* **Textos largos:** se truncan a 256 tokens. Se puede cambiar con --max-length.
+Reanudable: el cálculo guarda lotes en backend/data/emb_chunks/, así que si se corta no pierdes el avance.
+
+```Powershell
+uv run python -m backend.tests.test_class_examples
+uv run python -m backend.scripts.tune
+uv run python -m backend.scripts.build_embeddings --limit 2000   # prueba rápida
+uv run python -m backend.scripts.build_embeddings                # corpus completo
+uv run python -m backend.scripts.run_eval
+uv run python -m backend.scripts.compare_models --a embeddings --b bm25
+```
+
+> [!CAUTION] 
+> No comparar scores crudos entre modelos. Las clases de BM25 y embeddings insisten en que BM25 y coseno tienen escalas distintas. En la vista de comparación de la web conviene mostrar posiciones y solapamiento de IDs, y avisar que los scores no son comparables. Los qrels de FiQA son incompletos. Un documento sin juicio no es necesariamente no relevante (pooling). Un modelo semántico puede recuperar documentos útiles que los qrels no marcan, y eso castiga sus métricas. Vale la pena mencionarlo en el análisis.
+
