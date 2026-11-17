@@ -10,6 +10,7 @@ const ICON = {
   check: '<path d="M20 6 9 17l-5-5"/>',
 };
 const icon = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
+const SHORT = { jaccard: "Jaccard", tfidf: "TF-IDF", bm25: "BM25", embeddings: "Embeddings" };
 const MODEL_COLOR = { jaccard: "var(--chart-1)", tfidf: "var(--chart-2)", bm25: "var(--chart-3)", embeddings: "var(--chart-4)" };
 const METRICS = [["MAP@100", "MAP@100"], ["ndcg@10", "nDCG@10"], ["precision@10", "Precision@10"], ["recall@10", "Recall@10"], ["recall@20", "Recall@20"]];
 let LABELS = {}, compare = null, compareMode = "columns", metricsData = null, chartMetric = "MAP@100";
@@ -118,7 +119,7 @@ function renderCompare() {
   const d = compare, ids = Object.keys(d.runs);
   const who = {};
   ids.forEach((m) => d.runs[m].results.forEach((r) => { (who[r.doc_id] ||= []).push(m); }));
-  const others = (m, doc) => who[doc].filter((x) => x !== m).map((x) => LABELS[x]);
+  const others = (m, doc) => who[doc].filter((x) => x !== m).map((x) => SHORT[x] || x);
   const toolbar = `<div class="toolbar"><div class="legend"><span><i class="dot" style="background:var(--success)"></i>Relevante según qrels</span><span><i class="dot" style="background:var(--shared)"></i>Recuperado por más de un modelo</span></div>
     <div class="seg" role="group" aria-label="Tipo de vista"><button data-mode="columns" class="${compareMode === "columns" ? "on" : ""}">${icon("columns")}Columnas</button><button data-mode="table" class="${compareMode === "table" ? "on" : ""}">${icon("table")}Posiciones</button></div></div>`;
   let body;
