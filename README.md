@@ -20,7 +20,7 @@ Sistema de recuperación de información sobre el corpus **FiQA-2018** (57 638 r
 | Probabilístico | **BM25** (implementación propia) |
 | Vectorial (Embeddings) | `all-MiniLM-L6-v2` (fastembed/ONNX) + búsqueda vectorial en **FAISS** |
 
-La web permite escribir consultas libres, elegir el modelo, ver el top-n, **comparar los cuatro modelos lado a lado** y consultar las **métricas de evaluación**. Si la consulta es una de las de prueba, marca los documentos relevantes según los qrels y calcula Precision, Recall, nDCG y AP de esa consulta.
+La web empieza con una **portada minimalista**: una barra de búsqueda y, en la esquina, el acceso a **Análisis**. Los **ajustes avanzados** (modelo, número de resultados y consultas de ejemplo) se despliegan bajo la barra. Al buscar se muestra el ranking de un modelo o, por defecto, la **comparación de los cuatro lado a lado** (en columnas o como tabla de posiciones). Si la consulta es una de las de prueba, se marcan los documentos relevantes según los qrels y se calculan Precision, Recall, nDCG y AP de esa consulta. La página **Análisis** reúne las métricas de evaluación y la comparación entre embeddings y BM25 (victorias, intervalo de confianza, resultados por tipo de consulta y casos extremos).
 
 ## Resultados
 
@@ -139,6 +139,7 @@ Incluye la verificación de los modelos contra implementaciones ingenuas, la **r
 | `GET /api/compare?q=...&k=10` | Los cuatro modelos y el solape entre sus top-k |
 | `GET /api/doc/{id}` | Texto del documento |
 | `GET /api/metrics` | Métricas globales, latencia y configuración |
+| `GET /api/analysis` | Comparación embeddings frente a BM25 (resultado de `compare_models`) |
 | `GET /api/sample-queries` | Consultas de ejemplo |
 
 La documentación interactiva de FastAPI queda en `/docs`.
