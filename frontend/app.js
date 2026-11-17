@@ -8,12 +8,15 @@ const ICON = {
   columns: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/>',
   table: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
+  sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+  chart: '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>',
 };
 const icon = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
 const SHORT = { jaccard: "Jaccard", tfidf: "TF-IDF", bm25: "BM25", embeddings: "Embeddings" };
 const MODEL_COLOR = { jaccard: "var(--chart-1)", tfidf: "var(--chart-2)", bm25: "var(--chart-3)", embeddings: "var(--chart-4)" };
 const METRICS = [["MAP@100", "MAP@100"], ["ndcg@10", "nDCG@10"], ["precision@10", "Precision@10"], ["recall@10", "Recall@10"], ["recall@20", "Recall@20"]];
-let LABELS = {}, compare = null, compareMode = "columns", metricsData = null, chartMetric = "MAP@100";
+let LABELS = {}, compare = null, compareMode = "columns", metricsData = null, analysisData = null, chartMetric = "MAP@100", state = "home", ready = false;
 
 async function api(path) {
   const r = await fetch(path);
@@ -27,17 +30,44 @@ async function api(path) {
 function alertBox(kind, msg) { $("#alerts").innerHTML = msg ? `<div class="alert ${kind}">${esc(msg)}</div>` : ""; }
 
 /* ---------- tema ---------- */
-function applyThemeIcon() {
-  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-  $("#theme").innerHTML = icon(dark ? "sun" : "moon");
-}
+const isDark = () => (document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches);
+function applyThemeIcon() { $("#theme").innerHTML = icon(isDark() ? "sun" : "moon"); }
 $("#theme").addEventListener("click", () => {
-  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-  const next = dark ? "light" : "dark";
+  const next = isDark() ? "light" : "dark";
   document.documentElement.dataset.theme = next;
   try { localStorage.setItem("theme", next); } catch (_) {}
   applyThemeIcon();
 });
+
+/* ---------- navegación: portada → resultados → análisis ---------- */
+function closeAdv() { $("#adv").hidden = true; $("#adv-toggle").setAttribute("aria-expanded", "false"); }
+function setState(s, url = null) {
+  state = s; document.body.dataset.state = s;
+  $("#hero").hidden = s !== "home"; $("#view-results").hidden = s !== "results"; $("#view-metrics").hidden = s !== "analysis";
+  const slot = s === "home" ? $("#hero-slot") : $("#bar-slot");
+  if ($("#searchwrap").parentElement !== slot) slot.appendChild($("#searchwrap"));
+  $("#nav-analysis").classList.toggle("active", s === "analysis");
+  closeAdv();
+  if (url !== null) history.pushState({ s }, "", url);
+  window.scrollTo(0, 0);
+}
+const homeUrl = () => location.pathname;
+const resultsUrl = (q, model, k) => `${location.pathname}?${new URLSearchParams({ q, model, k })}`;
+const analysisUrl = () => `${location.pathname}#analisis`;
+
+async function route() {
+  const p = new URLSearchParams(location.search), q = p.get("q");
+  if (q && ready) {
+    $("#q").value = q;
+    if ([...$("#model").options].some((o) => o.value === p.get("model"))) $("#model").value = p.get("model");
+    if ([...$("#k").options].some((o) => o.value === p.get("k"))) $("#k").value = p.get("k");
+    await run(false);
+  } else if (location.hash === "#analisis" && ready) await showAnalysis(false);
+  else setState("home");
+}
+window.addEventListener("popstate", route);
+$("#brand").addEventListener("click", (e) => { e.preventDefault(); setState("home", homeUrl()); $("#q").focus(); });
+$("#nav-analysis").addEventListener("click", () => showAnalysis(true));
 
 /* ---------- arranque ---------- */
 async function waitReady() {
@@ -54,26 +84,31 @@ async function waitReady() {
 async function init() {
   applyThemeIcon();
   $("#go").innerHTML = icon("search") + "Buscar";
+  $("#adv-toggle").innerHTML = icon("sliders") + '<span class="toggle-label">Ajustes avanzados</span>' + icon("chevron");
+  $("#nav-analysis").innerHTML = icon("chart") + "Análisis";
   $("#doc-close").innerHTML = icon("x");
-  showEmpty();
+  setState("home"); $("#q").focus();
   if (!(await waitReady())) return;
   const models = await api("/api/models");
   LABELS = Object.fromEntries(models.map((m) => [m.id, m.label]));
-  $("#model").innerHTML = models.map((m) => `<option value="${m.id}"${m.id === "bm25" ? " selected" : ""}>${esc(m.label)}</option>`).join("")
-    + `<option value="all">Comparar todos los modelos</option>`;
+  $("#model").innerHTML = `<option value="all" selected>Comparar todos los modelos</option>`
+    + models.map((m) => `<option value="${m.id}">${esc(m.label)}</option>`).join("");
+  ready = true;
   api("/api/sample-queries").then(renderSamples).catch(() => {});
-  loadMetrics();
+  route();
 }
 function renderSamples(samples) {
   $("#samples").innerHTML = samples.map((s, i) => `<button type="button" class="chip" data-i="${i}">${esc(s.query.length > 64 ? s.query.slice(0, 64) + "…" : s.query)}<small>${esc(s.note)}</small></button>`).join("");
   $("#samples").onclick = (e) => {
     const b = e.target.closest(".chip"); if (!b) return;
-    $("#q").value = samples[b.dataset.i].query; setView("results"); run();
+    $("#q").value = samples[b.dataset.i].query; closeAdv(); run();
   };
 }
-function showEmpty() {
-  $("#view-results").innerHTML = '<div class="empty"><strong>Aún no hay resultados</strong>Escribe una consulta o elige uno de los ejemplos para ver el ranking de cada modelo.</div>';
-}
+$("#adv-toggle").addEventListener("click", () => {
+  const open = $("#adv").hidden; $("#adv").hidden = !open; $("#adv-toggle").setAttribute("aria-expanded", String(open));
+});
+document.addEventListener("click", (e) => { if (state !== "home" && !$("#adv").hidden && !e.target.closest("#searchwrap")) closeAdv(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAdv(); });
 
 /* ---------- piezas ---------- */
 function queryBadges(qm) {
@@ -95,29 +130,30 @@ function result(r, others = []) {
 }
 const freeNote = '<div class="alert info">Consulta libre: no hay qrels para ella, así que no se calculan métricas ni se marcan documentos relevantes.</div>';
 const noHits = '<div class="empty"><strong>Sin resultados</strong>Ningún documento comparte términos con la consulta.</div>';
+const resTitle = (q, k) => `<div class="res-title">Resultados para <b>«${esc(q)}»</b> · top-${k}</div>`;
 function skeletons() { $("#view-results").innerHTML = '<div class="results"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>'; }
 
 /* ---------- búsqueda ---------- */
-async function run() {
+async function run(push = true) {
   const q = $("#q").value.trim(); if (!q) return;
   const model = $("#model").value, k = $("#k").value, btn = $("#go");
-  btn.disabled = true; setView("results"); skeletons();
+  setState("results", push ? resultsUrl(q, model, k) : null);
+  btn.disabled = true; skeletons();
   try {
     if (model === "all") { compare = await api(`/api/compare?q=${encodeURIComponent(q)}&k=${k}`); renderCompare(); }
-    else renderSearch(await api(`/api/search?q=${encodeURIComponent(q)}&model=${model}&k=${k}`));
+    else renderSearch(await api(`/api/search?q=${encodeURIComponent(q)}&model=${model}&k=${k}`), q);
   } catch (e) {
     $("#view-results").innerHTML = `<div class="alert destructive">${esc(e.message)}</div>`;
     if (e.status === 503) waitReady();
   } finally { btn.disabled = false; }
 }
-function renderSearch(d) {
-  $("#view-results").innerHTML = `<div class="head"><h2>${esc(d.label)}</h2><span class="badge outline">${d.latency_ms} ms</span>${queryBadges(d.query_metrics)}</div>`
+function renderSearch(d, q) {
+  $("#view-results").innerHTML = resTitle(q, d.k) + `<div class="head"><h2>${esc(d.label)}</h2><span class="badge outline">${d.latency_ms} ms</span>${queryBadges(d.query_metrics)}</div>`
     + (d.query_known ? "" : freeNote)
     + (d.results.length ? `<div class="results">${d.results.map((r) => result(r)).join("")}</div>` : noHits);
 }
 function renderCompare() {
-  const d = compare, ids = Object.keys(d.runs);
-  const who = {};
+  const d = compare, ids = Object.keys(d.runs), who = {};
   ids.forEach((m) => d.runs[m].results.forEach((r) => { (who[r.doc_id] ||= []).push(m); }));
   const others = (m, doc) => who[doc].filter((x) => x !== m).map((x) => SHORT[x] || x);
   const toolbar = `<div class="toolbar"><div class="legend"><span><i class="dot" style="background:var(--success)"></i>Relevante según qrels</span><span><i class="dot" style="background:var(--shared)"></i>Recuperado por más de un modelo</span></div>
@@ -141,18 +177,22 @@ function renderCompare() {
   }
   const head = "<tr><th></th>" + ids.map((m) => `<th>${esc(LABELS[m])}</th>`).join("") + "</tr>";
   const overlap = ids.map((a) => `<tr><td>${esc(LABELS[a])}</td>` + ids.map((b) => `<td>${a === b ? "—" : d.overlap[a][b] + " / " + d.k}</td>`).join("") + "</tr>").join("");
-  $("#view-results").innerHTML = toolbar + body
+  $("#view-results").innerHTML = resTitle(d.query, d.k) + toolbar + body
     + `<div class="card" style="margin-top:16px"><div class="card-title">Documentos en común entre los top-${d.k}</div><p class="card-desc">Cuántos resultados comparten dos modelos. Los scores no se comparan porque cada modelo usa una escala distinta (BM25 no está acotado y el coseno va de 0 a 1).</p><div class="tablewrap"><table>${head}${overlap}</table></div></div>`
     + (d.query_known ? "" : freeNote);
 }
 
-/* ---------- métricas ---------- */
-async function loadMetrics() {
-  try { metricsData = await api("/api/metrics"); renderMetrics(); }
-  catch (e) { $("#view-metrics").innerHTML = `<div class="alert info">${esc(e.message)}</div>`; }
+/* ---------- análisis ---------- */
+async function showAnalysis(push = true) {
+  setState("analysis", push ? analysisUrl() : null);
+  $("#view-metrics").innerHTML = '<div class="results"><div class="skeleton"></div><div class="skeleton"></div></div>';
+  const [m, a] = await Promise.allSettled([metricsData ? metricsData : api("/api/metrics"), analysisData ? analysisData : api("/api/analysis")]);
+  if (m.status === "fulfilled") metricsData = m.value;
+  if (a.status === "fulfilled") analysisData = a.value;
+  renderAnalysis(m.status === "rejected" ? m.reason.message : null, a.status === "rejected" ? a.reason.message : null);
 }
-function renderMetrics() {
-  const d = metricsData, order = d.order, cfg = d.config || {};
+function metricsSection(d) {
+  const order = d.order, cfg = d.config || {};
   const best = Object.fromEntries(METRICS.map(([k]) => [k, Math.max(...order.map((m) => d.models[m].summary[k]))]));
   const table = `<div class="tablewrap"><table><tr><th>Modelo</th>${METRICS.map(([, l]) => `<th>${l}</th>`).join("")}<th>ms / consulta</th></tr>
     ${order.map((m) => { const r = d.models[m]; return `<tr><td>${esc(r.label)}</td>${METRICS.map(([k]) => `<td class="${r.summary[k] === best[k] ? "best" : ""}">${r.summary[k].toFixed(4)}</td>`).join("")}<td>${r.latency_ms.toFixed(1)}</td></tr>`; }).join("")}</table></div>`;
@@ -163,19 +203,41 @@ function renderMetrics() {
     ["BM25", cfg.bm25 ? `k1 = ${cfg.bm25.k1}, b = ${cfg.bm25.b}` : "—"],
     ["TF-IDF", cfg.tfidf ? `TF ${cfg.tfidf.tf}, IDF ${cfg.tfidf.idf}` : "—"],
     ["Índice invertido", cfg.index_mb ? `${cfg.index_mb} MB` : "—"]];
-  $("#view-metrics").innerHTML = `<div class="card"><div class="card-title">Resultados en el conjunto de prueba</div>
+  return `<div class="card"><div class="card-title">Resultados en el conjunto de prueba</div>
       <p class="card-desc">Precision y Recall se promedian por consulta; MAP@100 es el promedio de la precisión promedio sobre los 100 primeros resultados. En negrita, el mejor valor de cada columna.</p>${table}</div>
     <div class="grid2"><div class="card"><div class="toolbar"><div><div class="card-title">Comparación por métrica</div><p class="card-desc" style="margin:0">Mayor es mejor.</p></div>
         <div class="seg" role="group" aria-label="Métrica">${METRICS.map(([k, l]) => `<button data-metric="${k}" class="${k === chartMetric ? "on" : ""}">${l}</button>`).join("")}</div></div>${bars}</div>
-      <div class="card"><div class="card-title">Configuración</div><p class="card-desc">Parámetros elegidos en las consultas de desarrollo, no en las de prueba.</p><dl class="kv">${kv.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl></div></div>
-    <p class="muted small" style="margin-top:12px">Las consultas tienen pocos documentos relevantes (2,6 en promedio), por eso la Precision@10 máxima posible es baja. La latencia de los embeddings incluye calcular el embedding de la consulta. Los qrels de FiQA son incompletos: un documento sin juicio no es necesariamente irrelevante.</p>`;
+      <div class="card"><div class="card-title">Configuración</div><p class="card-desc">Parámetros elegidos en las consultas de desarrollo, no en las de prueba.</p><dl class="kv">${kv.map(([x, y]) => `<dt>${x}</dt><dd>${esc(y)}</dd>`).join("")}</dl></div></div>`;
+}
+function comparisonSection(a) {
+  const A = a.labels.a, B = a.labels.b, f = (x) => x.toFixed(4), sgn = (x) => (x >= 0 ? "+" : "") + x.toFixed(4);
+  const tot = a.a_gana + a.b_gana + a.empates;
+  const maxv = Math.max(...Object.values(a.buckets).flatMap((b) => [b.a, b.b]), a.mean_a, a.mean_b);
+  const rows = Object.entries(a.buckets).map(([name, b]) => `<tr><td>${esc(name)}</td><td>${b.n}</td>
+    <td><span class="mini"><span style="width:${(b.a / maxv) * 100}%;background:var(--chart-4)"></span></span>${f(b.a)}</td>
+    <td><span class="mini"><span style="width:${(b.b / maxv) * 100}%;background:var(--chart-3)"></span></span>${f(b.b)}</td>
+    <td class="${b.a - b.b >= 0 ? "pos" : "neg"}">${sgn(b.a - b.b)}</td></tr>`).join("");
+  const list = (items, title) => `<div><div class="subtitle">${title}</div><div class="qlist">${items.map((r) => `<button type="button" data-q="${esc(r.query)}"><span>${esc(r.query.length > 90 ? r.query.slice(0, 90) + "…" : r.query)}</span><small>${esc(SHORT.embeddings)} ${r.a.toFixed(2)} · ${esc(SHORT.bm25)} ${r.b.toFixed(2)}</small></button>`).join("")}</div></div>`;
+  return `<div class="card"><div class="card-title">${esc(A)} frente a ${esc(B)}</div>
+    <p class="card-desc">Comparación consulta por consulta con la precisión promedio (AP) en las ${a.n} consultas de prueba. Pulsa una consulta para verla en la comparación.</p>
+    <div class="tiles">
+      <div class="tile"><div class="k">AP medio</div><div class="v">${f(a.mean_a)} <span class="muted small">vs</span> ${f(a.mean_b)}</div><div class="s">${esc(SHORT.embeddings)} · ${esc(SHORT.bm25)}</div></div>
+      <div class="tile"><div class="k">Diferencia media</div><div class="v ${a.diff_media >= 0 ? "pos" : "neg"}">${sgn(a.diff_media)}</div><div class="s">IC 95 %: ${sgn(a.ic95[0])} a ${sgn(a.ic95[1])}</div></div>
+      <div class="tile"><div class="k">Consultas ganadas</div><div class="v">${a.a_gana} <span class="muted small">/</span> ${a.b_gana}</div>
+        <div class="stack"><span style="width:${(a.a_gana / tot) * 100}%;background:var(--chart-4)"></span><span style="width:${(a.b_gana / tot) * 100}%;background:var(--chart-3)"></span></div><div class="s">${esc(SHORT.embeddings)} · ${esc(SHORT.bm25)} · ${a.empates} empates</div></div>
+    </div>
+    <div class="subtitle" style="margin-top:0">Por tipo de consulta</div>
+    <div class="tablewrap"><table><tr><th>Tipo</th><th>n</th><th>${esc(SHORT.embeddings)}</th><th>${esc(SHORT.bm25)}</th><th>Diferencia</th></tr>${rows}</table></div>
+    <div class="cols2">${list(a.a_mejora_mas, esc(SHORT.embeddings) + " mejora más")}${list(a.a_empeora_mas, esc(SHORT.embeddings) + " empeora más")}</div></div>`;
+}
+function renderAnalysis(metricsErr, analysisErr) {
+  $("#view-metrics").innerHTML = `<div class="page-head"><h2>Análisis</h2><p class="muted">Métricas de evaluación de los cuatro modelos y comparación entre la recuperación semántica y BM25.</p></div>`
+    + (metricsData ? metricsSection(metricsData) : `<div class="alert info">${esc(metricsErr || "Sin métricas.")}</div>`)
+    + `<div style="margin-top:16px">${analysisData ? comparisonSection(analysisData) : `<div class="alert info">${esc(analysisErr || "Sin análisis.")}</div>`}</div>`
+    + `<p class="muted small" style="margin-top:12px">Las consultas tienen pocos documentos relevantes (2,6 en promedio), por eso la Precision@10 máxima posible es baja. La latencia de los embeddings incluye calcular el embedding de la consulta. Los qrels de FiQA son incompletos: un documento sin juicio no es necesariamente irrelevante.</p>`;
 }
 
-/* ---------- vistas y eventos ---------- */
-function setView(v) {
-  document.querySelectorAll(".tab").forEach((b) => { const on = b.dataset.view === v; b.classList.toggle("active", on); b.setAttribute("aria-selected", on); });
-  $("#view-results").hidden = v !== "results"; $("#view-metrics").hidden = v !== "metrics";
-}
+/* ---------- eventos ---------- */
 async function openDoc(id) {
   try {
     const d = await api(`/api/doc/${encodeURIComponent(id)}`);
@@ -184,7 +246,6 @@ async function openDoc(id) {
   } catch (e) { alertBox("destructive", e.message); }
 }
 $("#form").addEventListener("submit", (e) => { e.preventDefault(); run(); });
-document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
 $("#doc-close").addEventListener("click", () => $("#doc").close());
 $("#doc").addEventListener("click", (e) => { if (e.target === $("#doc")) $("#doc").close(); });
 $("#view-results").addEventListener("click", (e) => {
@@ -192,7 +253,12 @@ $("#view-results").addEventListener("click", (e) => {
   if (m) { compareMode = m.dataset.mode; renderCompare(); return; }
   const c = e.target.closest("[data-doc]"); if (c) openDoc(c.dataset.doc);
 });
-$("#view-metrics").addEventListener("click", (e) => { const b = e.target.closest("[data-metric]"); if (b) { chartMetric = b.dataset.metric; renderMetrics(); } });
+$("#view-metrics").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-metric]");
+  if (b) { chartMetric = b.dataset.metric; renderAnalysis(); return; }
+  const q = e.target.closest("[data-q]");
+  if (q) { $("#q").value = q.dataset.q; $("#model").value = "all"; run(); }
+});
 $("#view-results").addEventListener("mouseover", (e) => {
   document.querySelectorAll(".hl").forEach((x) => x.classList.remove("hl"));
   const c = e.target.closest(".result[data-doc]");

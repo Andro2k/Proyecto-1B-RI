@@ -9,40 +9,51 @@
   <link rel="stylesheet" href="styles.css">
   <script>try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 </head>
-<body>
+<body data-state="home">
   <header class="topbar">
     <div class="container bar">
-      <div class="brand">
+      <a id="brand" class="brand" href="./" aria-label="Ir al inicio">
         <span class="logo" aria-hidden="true"></span>
-        <div><strong>Recuperación de Información</strong><span>FiQA-2018 · comparador de modelos</span></div>
-      </div>
-      <button id="theme" class="btn ghost icon" type="button" aria-label="Cambiar entre tema claro y oscuro"></button>
+        <span class="brand-text"><strong>Recuperación de Información</strong><span>FiQA-2018</span></span>
+      </a>
+      <div id="bar-slot" class="bar-slot"></div>
+      <nav class="nav">
+        <button id="nav-analysis" class="btn ghost" type="button"></button>
+        <button id="theme" class="btn ghost icon" type="button" aria-label="Cambiar entre tema claro y oscuro"></button>
+      </nav>
     </div>
   </header>
 
   <main class="container">
     <div id="alerts" aria-live="polite"></div>
 
-    <section class="card">
-      <form id="form" autocomplete="off">
-        <label class="label" for="q">Consulta</label>
-        <input id="q" class="input" type="search" maxlength="500" required placeholder="Escribe una pregunta en inglés, p. ej. where should I park my emergency fund?">
-        <div class="row">
-          <div class="field"><label class="label" for="model">Modelo</label><select id="model" class="input select"></select></div>
-          <div class="field"><label class="label" for="k">Resultados (top-n)</label><select id="k" class="input select"><option>5</option><option selected>10</option><option>20</option></select></div>
-          <button id="go" class="btn primary" type="submit"></button>
+    <section id="hero" class="hero">
+      <span class="logo big" aria-hidden="true"></span>
+      <h1>Recuperación de Información</h1>
+      <p class="muted">Compara Jaccard, TF-IDF, BM25 y embeddings sobre FiQA-2018</p>
+      <div id="hero-slot" class="hero-slot">
+        <div id="searchwrap" class="searchwrap">
+          <form id="form" autocomplete="off">
+            <div class="search-group">
+              <label for="q" class="sr-only">Consulta</label>
+              <input id="q" type="search" maxlength="500" required placeholder="Pregunta algo en inglés, p. ej. where should I park my emergency fund?">
+              <button id="go" class="btn primary" type="submit"></button>
+            </div>
+            <button type="button" id="adv-toggle" class="adv-toggle" aria-expanded="false" aria-controls="adv" aria-label="Ajustes avanzados"></button>
+          </form>
+          <div id="adv" class="adv card" hidden>
+            <div class="adv-fields">
+              <div class="field"><label class="label" for="model">Modelo</label><select id="model" class="input select"></select></div>
+              <div class="field"><label class="label" for="k">Resultados (top-n)</label><select id="k" class="input select"><option>5</option><option selected>10</option><option>20</option></select></div>
+            </div>
+            <div class="adv-samples"><span class="label">Consultas de ejemplo</span><div id="samples" class="samples"></div></div>
+          </div>
         </div>
-      </form>
-      <div class="samples-wrap"><span class="muted small">Prueba con un ejemplo:</span><div id="samples" class="samples"></div></div>
+      </div>
     </section>
 
-    <div class="tabs" role="tablist" aria-label="Vista">
-      <button class="tab active" role="tab" data-view="results" aria-selected="true">Resultados</button>
-      <button class="tab" role="tab" data-view="metrics" aria-selected="false">Métricas de evaluación</button>
-    </div>
-
-    <section id="view-results" role="tabpanel"></section>
-    <section id="view-metrics" role="tabpanel" hidden></section>
+    <section id="view-results" hidden></section>
+    <section id="view-metrics" hidden></section>
   </main>
 
   <dialog id="doc" aria-labelledby="doc-title">
