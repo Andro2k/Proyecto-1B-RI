@@ -28,6 +28,10 @@ def make_artifacts(tmp: Path) -> Path:
     metrics = {m: {"n_queries": 1, "summary": summary, "latency_ms": 1.0, "per_query": {}} for m in ("jaccard", "tfidf", "bm25", "embeddings")}
     metrics["_config"] = {"bm25": {"k1": 1.2, "b": 0.75}, "n_queries": 1}
     (tmp / "metrics.json").write_text(json.dumps(metrics))
+    row = {"qid": "q1", "query": q, "a": 1.0, "b": 0.5}
+    cmp_ = {"n": 1, "mean_a": 1.0, "mean_b": 0.5, "a_gana": 1, "b_gana": 0, "empates": 0, "diff_media": 0.5, "ic95": [0.4, 0.6],
+            "buckets": {"consulta corta (<= 6 palabras)": {"n": 1, "a": 1.0, "b": 0.5}}, "a_mejora_mas": [row], "a_empeora_mas": [row]}
+    (tmp / "comparison_embeddings_vs_bm25.json").write_text(json.dumps(cmp_))
     return tmp
 
 
@@ -65,11 +69,22 @@ def main() -> None:
         m = c.get("/api/metrics").json()
         assert m["order"] == ["jaccard", "tfidf", "bm25", "embeddings"] and "per_query" not in m["models"]["bm25"]
         assert isinstance(c.get("/api/sample-queries").json(), list)
+        an = c.get("/api/analysis").json()
+        assert an["a"] == "embeddings" and an["b"] == "bm25" and an["a_gana"] == 1 and an["labels"]["b"] == "Probabilístico (BM25)", an
         assert c.get("/api/search", params={"q": q, "model": "xyz"}).status_code == 404
         assert c.get("/api/search", params={"q": ""}).status_code == 422
         assert c.get("/api/search", params={"q": q, "k": 99}).status_code == 422
         none = c.get("/api/search", params={"q": "zzzz qqqq", "model": "bm25"}).json()  # sin términos en común
         assert none["results"] == []
+    # Sin comparison_embeddings_vs_bm25.json no hay análisis: 404 claro, el resto sigue funcionando
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        art = make_artifacts(tmp)
+        (art / "comparison_embeddings_vs_bm25.json").unlink()
+        app = create_app(art, embedder=FakeEmbedder(), docs_cache_dir=tmp, frontend_dir=tmp / "x", load_async=False)
+        assert TestClient(app).get("/api/analysis").status_code == 404
+        assert TestClient(app).get("/api/metrics").status_code == 200
+
     # Si el modelo de embeddings no carga, el sistema debe seguir sirviendo los modelos léxicos
     class BrokenEmbedder:
         def embed_query(self, text):

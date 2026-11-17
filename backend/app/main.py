@@ -64,6 +64,7 @@ class Runtime:
         self.qrels: dict[str, dict[str, int]] = {}
         self.qid_by_text: dict[str, str] = {}
         self.metrics: dict = {}
+        self.analysis: dict = {}
         self.samples: list[dict] = []
 
     def load(self) -> None:
@@ -81,6 +82,8 @@ class Runtime:
                 self.qid_by_text = {_norm(t): q for q, t in self.queries.items()}
             if (a / "metrics.json").exists():
                 self.metrics = json.loads((a / "metrics.json").read_text(encoding="utf-8"))
+            if (a / "comparison_embeddings_vs_bm25.json").exists():
+                self.analysis = json.loads((a / "comparison_embeddings_vs_bm25.json").read_text(encoding="utf-8"))
             self.samples = self._build_samples()
             if "embeddings" in self.models:  # carga el modelo ONNX ahora y no en la primera consulta del usuario
                 try:
@@ -190,6 +193,14 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
         models = {m: {"label": LABELS[m], "n_queries": v["n_queries"], "summary": v["summary"], "latency_ms": v["latency_ms"]}
                   for m, v in rt.metrics.items() if not m.startswith("_") and m in LABELS}
         return {"config": rt.metrics.get("_config", {}), "models": models, "order": [m for m in LABELS if m in models]}
+
+    @app.get("/api/analysis")
+    def analysis():
+        rt._need_ready()
+        if not rt.analysis:
+            raise HTTPException(404, "Aún no hay análisis: ejecuta backend.scripts.compare_models")
+        # a = modelo semántico, b = línea base léxica; "a_mejora_mas"/"a_empeora_mas" se miden con AP
+        return {"a": "embeddings", "b": "bm25", "labels": {"a": LABELS["embeddings"], "b": LABELS["bm25"]}, **rt.analysis}
 
     @app.get("/api/sample-queries")
     def sample_queries():
