@@ -32,6 +32,10 @@ def make_artifacts(tmp: Path) -> Path:
 
 
 def main() -> None:
+    import backend.app.main as web
+
+    assert web._default_app is None, "importar el módulo no debe crear la app (cargaría los índices)"
+    assert web._clean("a &gt; b &amp; c") == "a > b & c" and web._snippet("x &gt; y") == "x > y"
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         art = make_artifacts(tmp)

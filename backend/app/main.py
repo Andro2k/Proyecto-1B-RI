@@ -1,6 +1,7 @@
 """API web (FastAPI) y servidor del frontend.
 Local:   uv run uvicorn backend.app.main:app --reload
 Render:  uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT"""
+import html
 import json
 import random
 import threading
@@ -30,7 +31,13 @@ def _norm(text: str) -> str:
     return " ".join(text.split())
 
 
+def _clean(text: str) -> str:
+    """El corpus trae entidades HTML (&gt;, &amp;...): se decodifican para mostrarlas."""
+    return html.unescape(text)
+
+
 def _snippet(text: str) -> str:
+    text = _clean(text)
     return text if len(text) <= SNIPPET_CHARS else text[:SNIPPET_CHARS].rsplit(" ", 1)[0] + "…"
 
 
@@ -122,7 +129,7 @@ class Runtime:
         results = []
         for rank, (d, s) in enumerate(top, 1):
             title, text = docs.get(d, ("", ""))
-            results.append({"rank": rank, "doc_id": d, "score": round(s, 4), "title": title,
+            results.append({"rank": rank, "doc_id": d, "score": round(s, 4), "title": _clean(title),
                             "snippet": _snippet(text), "relevant": (d in rels) if qid else None})
         out = {"model": model, "label": LABELS[model], "k": k, "latency_ms": round(latency, 1), "results": results}
         if qid and rels:
@@ -173,7 +180,7 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
         if doc_id not in found:
             raise HTTPException(404, "Documento no encontrado")
         title, text = found[doc_id]
-        return {"doc_id": doc_id, "title": title, "text": text}
+        return {"doc_id": doc_id, "title": _clean(title), "text": _clean(text)}
 
     @app.get("/api/metrics")
     def metrics():
@@ -194,4 +201,15 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
     return app
 
 
-app = create_app()
+_default_app: FastAPI | None = None
+
+
+def __getattr__(name: str):
+    """`uvicorn backend.app.main:app` pide `app`: se crea entonces y no al importar el módulo
+    (así los tests y scripts que solo importan create_app no cargan los índices en segundo plano)."""
+    global _default_app
+    if name == "app":
+        if _default_app is None:
+            _default_app = create_app()
+        return _default_app
+    raise AttributeError(name)
