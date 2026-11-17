@@ -4,44 +4,52 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Recuperación de Información · FiQA-2018</title>
+  <meta name="description" content="Comparador de modelos de recuperación de información (Jaccard, TF-IDF, BM25 y embeddings) sobre FiQA-2018.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script>try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 </head>
 <body>
-  <header>
-    <div class="wrap">
-      <h1>Recuperación de Información</h1>
-      <p>Comparador de modelos sobre FiQA-2018 (preguntas y respuestas financieras en inglés)</p>
+  <header class="topbar">
+    <div class="container bar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true"></span>
+        <div><strong>Recuperación de Información</strong><span>FiQA-2018 · comparador de modelos</span></div>
+      </div>
+      <button id="theme" class="btn ghost icon" type="button" aria-label="Cambiar entre tema claro y oscuro"></button>
     </div>
   </header>
 
-  <main class="wrap">
-    <div id="banner" class="banner" hidden></div>
+  <main class="container">
+    <div id="alerts" aria-live="polite"></div>
 
-    <form id="form" autocomplete="off">
-      <input id="q" type="search" maxlength="500" required placeholder="Escribe una consulta en inglés, p. ej. where should I park my emergency fund?">
-      <div class="controls">
-        <label>Modelo
-          <select id="model"></select>
-        </label>
-        <label>Top-n
-          <select id="k"><option>5</option><option selected>10</option><option>20</option></select>
-        </label>
-        <button type="submit" class="primary">Buscar</button>
-      </div>
-    </form>
+    <section class="card">
+      <form id="form" autocomplete="off">
+        <label class="label" for="q">Consulta</label>
+        <input id="q" class="input" type="search" maxlength="500" required placeholder="Escribe una pregunta en inglés, p. ej. where should I park my emergency fund?">
+        <div class="row">
+          <div class="field"><label class="label" for="model">Modelo</label><select id="model" class="input select"></select></div>
+          <div class="field"><label class="label" for="k">Resultados (top-n)</label><select id="k" class="input select"><option>5</option><option selected>10</option><option>20</option></select></div>
+          <button id="go" class="btn primary" type="submit"></button>
+        </div>
+      </form>
+      <div class="samples-wrap"><span class="muted small">Prueba con un ejemplo:</span><div id="samples" class="samples"></div></div>
+    </section>
 
-    <div id="samples" class="samples"></div>
+    <div class="tabs" role="tablist" aria-label="Vista">
+      <button class="tab active" role="tab" data-view="results" aria-selected="true">Resultados</button>
+      <button class="tab" role="tab" data-view="metrics" aria-selected="false">Métricas de evaluación</button>
+    </div>
 
-    <nav class="tabs">
-      <button data-view="results" class="active">Resultados</button>
-      <button data-view="metrics">Métricas de evaluación</button>
-    </nav>
-
-    <section id="view-results"><p class="muted">Escribe una consulta, o prueba con uno de los ejemplos.</p></section>
-    <section id="view-metrics" hidden></section>
+    <section id="view-results" role="tabpanel"></section>
+    <section id="view-metrics" role="tabpanel" hidden></section>
   </main>
 
-  <dialog id="doc"><article></article><button id="doc-close" class="primary">Cerrar</button></dialog>
+  <dialog id="doc" aria-labelledby="doc-title">
+    <div class="dialog-head"><h3 id="doc-title"></h3><button id="doc-close" class="btn ghost icon" type="button" aria-label="Cerrar"></button></div>
+    <p id="doc-id" class="muted small"></p>
+    <div id="doc-text" class="doc-text"></div>
+  </dialog>
   <script src="app.js"></script>
 </body>
 </html>
