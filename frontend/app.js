@@ -1,131 +1,196 @@
 const $ = (s) => document.querySelector(s);
-const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const esc = (t) => String(t || "").replace(/[&<>"']/g, (c) => ({ "\u0026": "\u0026amp;", "\u003c": "\u0026lt;", "\u003e": "\u0026gt;", "\u0022": "\u0026quot;", "\u0027": "\u0026#39;" }[c]));
 const ICON = {
-  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>',
-  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
-  x: '<path d="M18 6 6 18M6 6l12 12"/>',
-  columns: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/>',
-  table: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18"/>',
-  check: '<path d="M20 6 9 17l-5-5"/>',
-  sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
-  chevron: '<path d="m6 9 6 6 6-6"/>',
-  chart: '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>',
+    moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    columns: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/>',
+    table: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+    chevron: '<path d="m6 9 6 6 6-6"/>',
+    chart: '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>',
 };
 const icon = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
 const SHORT = { jaccard: "Jaccard", tfidf: "TF-IDF", bm25: "BM25", embeddings: "Embeddings" };
 const MODEL_COLOR = { jaccard: "var(--chart-1)", tfidf: "var(--chart-2)", bm25: "var(--chart-3)", embeddings: "var(--chart-4)" };
-const METRICS = [["MAP@100", "MAP@100"], ["ndcg@10", "nDCG@10"], ["precision@10", "Precision@10"], ["recall@10", "Recall@10"], ["recall@20", "Recall@20"]];
-let LABELS = {}, compare = null, compareMode = "columns", metricsData = null, analysisData = null, chartMetric = "MAP@100", state = "home", ready = false;
+const METRICS = [
+    ["MAP@100", "MAP@100"],
+    ["ndcg@10", "nDCG@10"],
+    ["precision@10", "Precision@10"],
+    ["recall@10", "Recall@10"],
+    ["recall@20", "Recall@20"]
+];
+let LABELS = {},
+    compare = null,
+    compareMode = "columns",
+    metricsData = null,
+    analysisData = null,
+    chartMetric = "MAP@100",
+    state = "home",
+    ready = false;
 
 async function api(path) {
-  const r = await fetch(path);
-  if (!r.ok) {
-    let msg = r.statusText;
-    try { msg = (await r.json()).detail || msg; } catch (_) {}
-    const e = new Error(msg); e.status = r.status; throw e;
-  }
-  return r.json();
+    const r = await fetch(path);
+    if (!r.ok) {
+        let msg = r.statusText;
+        try { msg = (await r.json()).detail || msg; } catch (_) {}
+        const e = new Error(msg);
+        e.status = r.status;
+        throw e;
+    }
+    return r.json();
 }
+
 function alertBox(kind, msg) { $("#alerts").innerHTML = msg ? `<div class="alert ${kind}">${esc(msg)}</div>` : ""; }
 
 /* ---------- tema ---------- */
 const isDark = () => (document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches);
+
 function applyThemeIcon() { $("#theme").innerHTML = icon(isDark() ? "sun" : "moon"); }
 $("#theme").addEventListener("click", () => {
-  const next = isDark() ? "light" : "dark";
-  document.documentElement.dataset.theme = next;
-  try { localStorage.setItem("theme", next); } catch (_) {}
-  applyThemeIcon();
+    const next = isDark() ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("theme", next); } catch (_) {}
+    applyThemeIcon();
 });
 
 /* ---------- navegación: portada → resultados → análisis ---------- */
-function closeAdv() { $("#adv").hidden = true; $("#adv-toggle").setAttribute("aria-expanded", "false"); }
+function closeAdv() {
+    $("#adv").hidden = true;
+    $("#adv-toggle").setAttribute("aria-expanded", "false");
+}
+
 function setState(s, url = null) {
-  state = s; document.body.dataset.state = s;
-  $("#hero").hidden = s !== "home"; $("#view-results").hidden = s !== "results"; $("#view-metrics").hidden = s !== "analysis";
-  const slot = s === "home" ? $("#hero-slot") : $("#bar-slot");
-  if ($("#searchwrap").parentElement !== slot) slot.appendChild($("#searchwrap"));
-  $("#nav-analysis").classList.toggle("active", s === "analysis");
-  closeAdv();
-  if (url !== null) history.pushState({ s }, "", url);
-  window.scrollTo(0, 0);
+    state = s;
+    document.body.dataset.state = s;
+    $("#hero").hidden = s !== "home";
+    $("#view-results").hidden = s !== "results";
+    $("#view-metrics").hidden = s !== "analysis";
+    const slot = s === "home" ? $("#hero-slot") : $("#bar-slot");
+    if ($("#searchwrap").parentElement !== slot) slot.appendChild($("#searchwrap"));
+    $("#nav-analysis").classList.toggle("active", s === "analysis");
+    closeAdv();
+    if (url !== null) history.pushState({ s }, "", url);
+    window.scrollTo(0, 0);
 }
 const homeUrl = () => location.pathname;
 const resultsUrl = (q, model, k) => `${location.pathname}?${new URLSearchParams({ q, model, k })}`;
 const analysisUrl = () => `${location.pathname}#analisis`;
 
 async function route() {
-  const p = new URLSearchParams(location.search), q = p.get("q");
-  if (q && ready) {
-    $("#q").value = q;
-    if ([...$("#model").options].some((o) => o.value === p.get("model"))) $("#model").value = p.get("model");
-    if ([...$("#k").options].some((o) => o.value === p.get("k"))) $("#k").value = p.get("k");
-    await run(false);
-  } else if (location.hash === "#analisis" && ready) await showAnalysis(false);
-  else setState("home");
+    const p = new URLSearchParams(location.search),
+        q = p.get("q");
+    if (q && ready) {
+        $("#q").value = q;
+        if ([...$("#model").options].some((o) => o.value === p.get("model"))) $("#model").value = p.get("model");
+        if ([...$("#k").options].some((o) => o.value === p.get("k"))) $("#k").value = p.get("k");
+        await run(false);
+    } else if (location.hash === "#analisis" && ready) await showAnalysis(false);
+    else setState("home");
 }
 window.addEventListener("popstate", route);
-$("#brand").addEventListener("click", (e) => { e.preventDefault(); setState("home", homeUrl()); $("#q").focus(); });
+$("#brand").addEventListener("click", (e) => {
+    e.preventDefault();
+    setState("home", homeUrl());
+    $("#q").focus();
+});
 $("#nav-analysis").addEventListener("click", () => showAnalysis(true));
 
 /* ---------- arranque ---------- */
 async function waitReady() {
-  for (;;) {
-    try {
-      const h = await api("/health");
-      if (h.error) { alertBox("destructive", "Error al iniciar el sistema: " + h.error); return false; }
-      if (h.ready) { alertBox("warning", (h.warnings || []).join(" ")); return true; }
-      alertBox("info", "Cargando índices y modelos… la primera vez puede tardar hasta un minuto.");
-    } catch (_) { alertBox("info", "Conectando con el servidor…"); }
-    await new Promise((r) => setTimeout(r, 2000));
-  }
+    for (;;) {
+        try {
+            const h = await api("/health");
+            if (h.error) { alertBox("destructive", "Error al iniciar el sistema: " + h.error); return false; }
+            if (h.ready) { alertBox("warning", (h.warnings || []).join(" ")); return true; }
+            alertBox("info", "Cargando índices y modelos… la primera vez puede tardar hasta un minuto.");
+        } catch (_) { alertBox("info", "Conectando con el servidor…"); }
+        await new Promise((r) => setTimeout(r, 2000));
+    }
 }
 async function init() {
-  applyThemeIcon();
-  $("#go").innerHTML = icon("search") + "Buscar";
-  $("#adv-toggle").innerHTML = icon("sliders") + '<span class="toggle-label">Ajustes avanzados</span>' + icon("chevron");
-  $("#nav-analysis").innerHTML = icon("chart") + "Análisis";
-  $("#doc-close").innerHTML = icon("x");
-  setState("home"); $("#q").focus();
-  if (!(await waitReady())) return;
-  const models = await api("/api/models");
-  LABELS = Object.fromEntries(models.map((m) => [m.id, m.label]));
-  $("#model").innerHTML = `<option value="all" selected>Comparar todos los modelos</option>`
-    + models.map((m) => `<option value="${m.id}">${esc(m.label)}</option>`).join("");
-  ready = true;
-  api("/api/sample-queries").then(renderSamples).catch(() => {});
-  route();
+    applyThemeIcon();
+    $("#go").innerHTML = icon("search") + "Buscar";
+    $("#adv-toggle").innerHTML = icon("sliders") + '<span class="toggle-label">Ajustes avanzados</span>' + icon("chevron");
+    $("#nav-analysis").innerHTML = icon("chart") + "Análisis";
+    $("#doc-close").innerHTML = icon("x");
+    setState("home");
+    $("#q").focus();
+    if (!(await waitReady())) return;
+    const models = await api("/api/models");
+    LABELS = Object.fromEntries(models.map((m) => [m.id, m.label]));
+    $("#model").innerHTML = `<option value="all" selected>Comparar todos los modelos</option>` +
+        models.map((m) => `<option value="${m.id}">${esc(m.label)}</option>`).join("");
+    ready = true;
+    api("/api/sample-queries").then(renderSamples).catch(() => {});
+    route();
 }
+
+/* ---------- helpers de resaltado ---------- */
+const STOP_EN = new Set(["the", "is", "at", "which", "on", "a", "an", "and", "or", "for", "to", "in", "of", "with", "by", "as", "what", "how", "why", "when", "where", "who", "my", "i", "you", "do", "does", "can", "should", "best", "way"]);
+
+function getQueryTerms(q) {
+    return [...new Set(q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP_EN.has(w)))];
+}
+
+function highlightText(text, terms) {
+    const safe = esc(text);
+    if (!terms || !terms.length) return safe;
+    const rx = new RegExp(`\\b(${terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}[a-z]*)\\b`, "gi");
+    return safe.replace(rx, '<mark class="kw">$1</mark>');
+}
+
+function hasExactMatch(text, terms) {
+    if (!terms || !terms.length) return true;
+    const low = text.toLowerCase();
+    return terms.some((t) => low.includes(t));
+}
+
 function renderSamples(samples) {
-  $("#samples").innerHTML = samples.map((s, i) => `<button type="button" class="chip" data-i="${i}">${esc(s.query.length > 64 ? s.query.slice(0, 64) + "…" : s.query)}<small>${esc(s.note)}</small></button>`).join("");
-  $("#samples").onclick = (e) => {
-    const b = e.target.closest(".chip"); if (!b) return;
-    $("#q").value = samples[b.dataset.i].query; closeAdv(); run();
-  };
+    $("#samples").innerHTML = samples.map((s, i) => `<button type="button" class="chip" data-i="${i}">${esc(s.query.length > 64 ? s.query.slice(0, 64) + "…" : s.query)}<small>${esc(s.note)}</small></button>`).join("");
+    if ($("#hero-samples")) {
+        $("#hero-samples").innerHTML = samples.slice(0, 3).map((s, i) => `<button type="button" class="chip" data-i="${i}"><span>${esc(s.query.length > 44 ? s.query.slice(0, 44) + "…" : s.query)}</span><small>· ${esc(s.note)}</small></button>`).join("");
+    }
+    const onChip = (e) => {
+        const b = e.target.closest(".chip");
+        if (!b) return;
+        $("#q").value = samples[b.dataset.i].query;
+        closeAdv();
+        run();
+    };
+    $("#samples").onclick = onChip;
+    if ($("#hero-samples")) $("#hero-samples").onclick = onChip;
 }
 $("#adv-toggle").addEventListener("click", () => {
-  const open = $("#adv").hidden; $("#adv").hidden = !open; $("#adv-toggle").setAttribute("aria-expanded", String(open));
+    const open = $("#adv").hidden;
+    $("#adv").hidden = !open;
+    $("#adv-toggle").setAttribute("aria-expanded", String(open));
 });
 document.addEventListener("click", (e) => { if (state !== "home" && !$("#adv").hidden && !e.target.closest("#searchwrap")) closeAdv(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAdv(); });
 
 /* ---------- piezas ---------- */
 function queryBadges(qm) {
-  if (!qm) return "";
-  return `<span class="badge">P@${qm.k} ${qm.precision.toFixed(2)}</span><span class="badge">R@${qm.k} ${qm.recall.toFixed(2)}</span>`
-    + `<span class="badge">nDCG@${qm.k} ${qm.ndcg.toFixed(2)}</span><span class="badge">AP ${qm.ap.toFixed(2)}</span>`
-    + `<span class="badge outline">${qm.n_relevant} relevantes en qrels</span>`;
+    if (!qm) return "";
+    return `<span class="badge">P@${qm.k} ${qm.precision.toFixed(2)}</span><span class="badge">R@${qm.k} ${qm.recall.toFixed(2)}</span>` +
+        `<span class="badge">nDCG@${qm.k} ${qm.ndcg.toFixed(2)}</span><span class="badge">AP ${qm.ap.toFixed(2)}</span>` +
+        `<span class="badge outline">${qm.n_relevant} relevantes en qrels</span>`;
 }
-function result(r, others = []) {
-  const cls = ["result", r.relevant === true ? "rel" : "", others.length ? "shared" : ""].join(" ");
-  const badges = (r.relevant === true ? `<span class="badge success">${icon("check")}Relevante (qrels)</span>` : "")
-    + (others.length ? `<span class="badge shared">También en: ${esc(others.join(", "))}</span>` : "");
-  return `<button type="button" class="${cls}" data-doc="${esc(r.doc_id)}">
+
+function result(r, others = [], terms = [], modelId = "") {
+    const fullText = `${r.title || ""} ${r.snippet || ""}`;
+    const isSemanticWin = modelId === "embeddings" && r.relevant === true && !hasExactMatch(fullText, terms);
+    const cls = ["result", r.relevant === true ? "rel" : "", others.length ? "shared" : ""].join(" ");
+    const badges = (r.relevant === true ? `<span class="badge success">${icon("check")}Relevante (qrels)</span>` : "") +
+        (isSemanticWin ? `<span class="badge semantic">Semántico (sin palabras exactas)</span>` : "") +
+        (others.length ? `<span class="badge shared">También en: ${esc(others.join(", "))}</span>` : "");
+    return `<button type="button" class="${cls}" data-doc="${esc(r.doc_id)}">
     <span class="rank">${r.rank}</span>
     <span><span class="meta" data-rank="#${r.rank}"><span>doc ${esc(r.doc_id)}</span><span>score ${r.score}</span></span>
-    ${r.title ? `<span class="title" style="display:block">${esc(r.title)}</span>` : ""}
-    <span class="text">${esc(r.snippet)}</span>
+    ${r.title ? `<span class="title" style="display:block">${highlightText(r.title, terms)}</span>` : ""}
+    <span class="text">${highlightText(r.snippet, terms)}</span>
     ${badges ? `<span class="badges">${badges}</span>` : ""}</span></button>`;
 }
 const freeNote = '<div class="alert info">Consulta libre: no hay qrels para ella, así que no se calculan métricas ni se marcan documentos relevantes.</div>';
@@ -148,14 +213,26 @@ async function run(push = true) {
   } finally { btn.disabled = false; }
 }
 function renderSearch(d, q) {
+  const terms = getQueryTerms(q);
   $("#view-results").innerHTML = resTitle(q, d.k) + `<div class="head"><h2>${esc(d.label)}</h2><span class="badge outline">${d.latency_ms} ms</span>${queryBadges(d.query_metrics)}</div>`
     + (d.query_known ? "" : freeNote)
-    + (d.results.length ? `<div class="results">${d.results.map((r) => result(r)).join("")}</div>` : noHits);
+    + (d.results.length ? `<div class="results">${d.results.map((r) => result(r, [], terms, d.model)).join("")}</div>` : noHits);
 }
 function renderCompare() {
-  const d = compare, ids = Object.keys(d.runs), who = {};
+  const d = compare, ids = Object.keys(d.runs), who = {}, terms = getQueryTerms(d.query);
   ids.forEach((m) => d.runs[m].results.forEach((r) => { (who[r.doc_id] ||= []).push(m); }));
   const others = (m, doc) => who[doc].filter((x) => x !== m).map((x) => SHORT[x] || x);
+
+  let liveChart = "";
+  if (d.query_known && d.runs[ids[0]].query_metrics) {
+    const maxAp = Math.max(...ids.map((m) => d.runs[m].query_metrics.ap), 0.01);
+    liveChart = `<div class="live-chart">${ids.map((m) => {
+      const qm = d.runs[m].query_metrics;
+      return `<div class="live-bar"><div class="live-bar-head"><strong>${esc(SHORT[m])}</strong><span class="muted">AP <b>${qm.ap.toFixed(2)}</b> · nDCG ${qm.ndcg.toFixed(2)}</span></div>
+        <div class="bar-track" style="height:8px"><div class="bar-fill" style="width:${(qm.ap / maxAp) * 100}%;background:${MODEL_COLOR[m]}"></div></div></div>`;
+    }).join("")}</div>`;
+  }
+
   const toolbar = `<div class="toolbar"><div class="legend"><span><i class="dot" style="background:var(--success)"></i>Relevante según qrels</span><span><i class="dot" style="background:var(--shared)"></i>Recuperado por más de un modelo</span></div>
     <div class="seg" role="group" aria-label="Tipo de vista"><button data-mode="columns" class="${compareMode === "columns" ? "on" : ""}">${icon("columns")}Columnas</button><button data-mode="table" class="${compareMode === "table" ? "on" : ""}">${icon("table")}Posiciones</button></div></div>`;
   let body;
@@ -163,21 +240,21 @@ function renderCompare() {
     body = `<div class="cols">${ids.map((m) => {
       const run = d.runs[m];
       return `<div class="col"><h3>${esc(run.label)}</h3><div class="head"><span class="badge outline">${run.latency_ms} ms</span>${queryBadges(run.query_metrics)}</div>
-        <div class="results">${run.results.length ? run.results.map((r) => result(r, others(m, r.doc_id))).join("") : noHits}</div></div>`;
+        <div class="results">${run.results.length ? run.results.map((r) => result(r, others(m, r.doc_id), terms, m)).join("") : noHits}</div></div>`;
     }).join("")}</div>`;
   } else {
     const rows = Array.from({ length: d.k }, (_, i) => `<tr><td>${i + 1}</td>${ids.map((m) => {
       const r = d.runs[m].results[i];
       if (!r) return "<td></td>";
       const cls = [r.relevant === true ? "rel" : "", others(m, r.doc_id).length ? "shared" : ""].join(" ");
-      return `<td class="${cls}" data-doc="${esc(r.doc_id)}"><b>doc ${esc(r.doc_id)}</b><br><span class="muted">${esc((r.title || r.snippet).slice(0, 90))}</span></td>`;
+      return `<td class="${cls}" data-doc="${esc(r.doc_id)}"><b>doc ${esc(r.doc_id)}</b><br><span class="muted">${highlightText((r.title || r.snippet).slice(0, 90), terms)}</span></td>`;
     }).join("")}</tr>`).join("");
     body = `<div class="tablewrap"><table class="cmp"><tr><th>#</th>${ids.map((m) => `<th>${esc(LABELS[m])}<br><span class="badge outline">${d.runs[m].latency_ms} ms</span></th>`).join("")}</tr>${rows}</table></div>
       <div class="head" style="margin-top:12px">${ids.map((m) => queryBadges(d.runs[m].query_metrics) ? `<span class="muted small">${esc(LABELS[m])}:</span>${queryBadges(d.runs[m].query_metrics)}` : "").join("")}</div>`;
   }
   const head = "<tr><th></th>" + ids.map((m) => `<th>${esc(LABELS[m])}</th>`).join("") + "</tr>";
   const overlap = ids.map((a) => `<tr><td>${esc(LABELS[a])}</td>` + ids.map((b) => `<td>${a === b ? "—" : d.overlap[a][b] + " / " + d.k}</td>`).join("") + "</tr>").join("");
-  $("#view-results").innerHTML = resTitle(d.query, d.k) + toolbar + body
+  $("#view-results").innerHTML = resTitle(d.query, d.k) + liveChart + toolbar + body
     + `<div class="card" style="margin-top:16px"><div class="card-title">Documentos en común entre los top-${d.k}</div><p class="card-desc">Cuántos resultados comparten dos modelos. Los scores no se comparan porque cada modelo usa una escala distinta (BM25 no está acotado y el coseno va de 0 a 1).</p><div class="tablewrap"><table>${head}${overlap}</table></div></div>`
     + (d.query_known ? "" : freeNote);
 }
@@ -241,7 +318,8 @@ function renderAnalysis(metricsErr, analysisErr) {
 async function openDoc(id) {
   try {
     const d = await api(`/api/doc/${encodeURIComponent(id)}`);
-    $("#doc-title").textContent = d.title || "Documento " + d.doc_id; $("#doc-id").textContent = "doc " + d.doc_id; $("#doc-text").textContent = d.text;
+    $("#doc-title").textContent = d.title || "Documento " + d.doc_id; $("#doc-id").textContent = "doc " + d.doc_id;
+    $("#doc-text").innerHTML = highlightText(d.text, getQueryTerms($("#q").value));
     $("#doc").showModal();
   } catch (e) { alertBox("destructive", e.message); }
 }
