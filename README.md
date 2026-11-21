@@ -135,7 +135,7 @@ Incluye la verificación de los modelos contra implementaciones ingenuas, la **r
 |---|---|
 | `GET /health` | Estado de carga y avisos (p. ej. embeddings no disponibles) |
 | `GET /api/models` | Modelos disponibles |
-| `GET /api/search?q=...&model=bm25&k=10` | Top-k de un modelo (`jaccard`, `tfidf`, `bm25`, `embeddings`) |
+| `GET /api/search?q=...&model=bm25&k=10` | Top-k de un modelo (`jaccard`, `tfidf`, `bm25`, `embeddings`; cualquier otro valor responde 422) |
 | `GET /api/compare?q=...&k=10` | Los cuatro modelos y el solape entre sus top-k |
 | `GET /api/doc/{id}` | Texto del documento |
 | `GET /api/metrics` | Métricas globales, latencia y configuración |

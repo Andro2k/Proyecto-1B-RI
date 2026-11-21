@@ -71,7 +71,11 @@ def main() -> None:
         assert isinstance(c.get("/api/sample-queries").json(), list)
         an = c.get("/api/analysis").json()
         assert an["a"] == "embeddings" and an["b"] == "bm25" and an["a_gana"] == 1 and an["labels"]["b"] == "Probabilístico (BM25)", an
-        assert c.get("/api/search", params={"q": q, "model": "xyz"}).status_code == 404
+        assert c.get("/api/search", params={"q": q, "model": "xyz"}).status_code == 422  # fuera de la lista cerrada
+        spec = c.get("/openapi.json").json()  # cada endpoint debe documentar la forma de su respuesta
+        for path, ops in spec["paths"].items():
+            assert ops["get"]["responses"]["200"]["content"]["application/json"]["schema"], f"{path} sin esquema de respuesta"
+            assert ops["get"].get("tags") and ops["get"].get("summary"), f"{path} sin tag ni resumen"
         assert c.get("/api/search", params={"q": ""}).status_code == 422
         assert c.get("/api/search", params={"q": q, "k": 99}).status_code == 422
         none = c.get("/api/search", params={"q": "zzzz qqqq", "model": "bm25"}).json()  # sin términos en común
@@ -96,6 +100,7 @@ def main() -> None:
         h = TestClient(app).get("/health").json()
         assert h["ready"] and h["error"] is None and "embeddings" not in h["models"] and "sin modelo" in h["warnings"][0], h
         assert TestClient(app).get("/api/search", params={"q": "emergency bank", "model": "bm25"}).status_code == 200
+        assert TestClient(app).get("/api/search", params={"q": "emergency bank", "model": "embeddings"}).status_code == 404
     print("OK API: salud, modelos, búsqueda (4 modelos), comparación, documento, métricas y validaciones")
 
 
