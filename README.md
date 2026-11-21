@@ -5,7 +5,9 @@
 
 **Integrantes:** Danny Molina · J. Luis Andino · Luis Morocho
 
-**URL del despliegue:** _pendiente — se completa al publicar la web (ver [Despliegue](#despliegue))_
+**URL del despliegue:** https://ri-fiqa.onrender.com (Render, plan gratuito: tras un rato sin uso la primera carga puede tardar hasta un minuto; ver [Despliegue](#despliegue))
+
+**Informe técnico:** [Informe-Proyecto B1-RI.pdf](Informe-Proyecto%20B1-RI.pdf)
 
 ---
 
@@ -48,10 +50,10 @@ Nota: Precision@10 es baja para todos porque cada consulta tiene pocos documento
 | Embeddings con modelo preentrenado y base vectorial | `backend/app/embedder.py`, `vector_store.py` (FAISS), `models/embeddings.py` |
 | Interfaz web: consultas, elegir modelo, top-n, comparar, métricas | `frontend/` + API en `backend/app/main.py` |
 | Evaluación con qrels: Precision y Recall por consulta, MAP del sistema | `backend/app/evaluation.py`, `backend/scripts/run_eval.py` |
-| Comparación de modelos y análisis por tipo de consulta | `backend/scripts/compare_models.py` (salida en `backend/artifacts/comparison_embeddings_vs_bm25.json`) |
+| Comparación de modelos y análisis por tipo de consulta | `backend/scripts/compare_models.py` (salidas en `backend/artifacts/comparison_embeddings_vs_bm25.json` y `comparison_embeddings_vs_tfidf.json`) |
 | Sin motores de búsqueda completos (Elasticsearch, Solr, Whoosh) | Los modelos clásicos son propios y se verifican con los ejemplos de las diapositivas de la asignatura (`backend/tests/test_class_examples.py`) |
-| Informe técnico (máx. 5 páginas) | _pendiente_ |
-| URL del despliegue | _pendiente_ |
+| Informe técnico (máx. 5 páginas) | [`Informe-Proyecto B1-RI.pdf`](Informe-Proyecto%20B1-RI.pdf) |
+| URL del despliegue | https://ri-fiqa.onrender.com |
 
 ## Estructura del repositorio
 
@@ -127,7 +129,9 @@ Después de regenerar los artefactos, súbelos al repositorio (`git add backend/
 uv run python main.py test
 ```
 
-Incluye la verificación de los modelos contra implementaciones ingenuas, la **reproducción de los ejemplos numéricos de las diapositivas** (BM25, TF-IDF y NDCG), las métricas, la capa FAISS, la API y el punto de entrada.
+Incluye la verificación de los modelos contra implementaciones ingenuas, la **reproducción de los ejemplos numéricos de las diapositivas** (BM25, TF-IDF y NDCG), las métricas, la capa FAISS, la API (incluido que cada endpoint documente su respuesta) y el punto de entrada.
+
+Cada archivo de `backend/tests/` es un módulo ejecutable, por lo que también se puede correr uno solo, por ejemplo `uv run python -m backend.tests.test_api`. No usan `pytest`: ejecutar `pytest` directamente no recolecta ninguna prueba.
 
 ## API
 
@@ -142,7 +146,7 @@ Incluye la verificación de los modelos contra implementaciones ingenuas, la **r
 | `GET /api/analysis` | Comparación embeddings frente a BM25 (resultado de `compare_models`) |
 | `GET /api/sample-queries` | Consultas de ejemplo |
 
-La documentación interactiva de FastAPI queda en `/docs`.
+Todos los endpoints son de solo lectura (`GET`). Mientras se cargan los índices, los `/api/*` responden 503 y `/health` responde siempre (con `"ready": false`). La documentación interactiva de FastAPI queda en `/docs`: endpoints agrupados por tema, con el esquema de cada respuesta y el selector de `model` como lista cerrada.
 
 ## Despliegue
 
@@ -153,11 +157,9 @@ La web y la API se sirven desde un solo servicio (FastAPI también entrega `fron
 - start: `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`;
 - health check: `/health`.
 
-El plan gratuito de Render tiene **512 MB de RAM**. Sin el modelo ONNX la aplicación ocupa unos 290 MB; si el servicio se queda sin memoria, la API sigue funcionando con los tres modelos léxicos y avisa de que los embeddings no están disponibles.
+**Estado actual:** la aplicación está desplegada en https://ri-fiqa.onrender.com y `/health` lista los cuatro modelos sin avisos. El plan gratuito tiene **512 MB de RAM**: sin el modelo ONNX la aplicación ocupa unos 290 MB y, si el servicio se quedara sin memoria, la API seguiría funcionando con los tres modelos léxicos y avisaría de que los embeddings no están disponibles. Además, ese plan **suspende el servicio tras unos 15 minutos sin tráfico** (reactivarlo puede tardar hasta un minuto) y su CPU limitada hace que una consulta con embeddings tarde alrededor de 1 s, frente a los 58 ms medidos en la máquina de desarrollo.
 
-**Docker / Hugging Face Spaces** — el `Dockerfile` construye la imagen (descarga el modelo en el build) y escucha en `$PORT` (7860 por defecto). En un Space de tipo Docker, añade al `README.md` del Space el encabezado `sdk: docker` y `app_port: 7860`. Los Spaces gratuitos ofrecen bastante más RAM que Render.
-
-Tras desplegar, escribe la URL al inicio de este README.
+**Docker / Hugging Face Spaces** — el `Dockerfile` construye la imagen (descarga el modelo en el build) y escucha en `$PORT` (7860 por defecto). En un Space de tipo Docker, añade al `README.md` del Space el encabezado `sdk: docker` y `app_port: 7860`. El hardware CPU básico de Hugging Face ofrece mucha más RAM que Render, pero según su documentación actual crear Spaces de tipo Docker requiere un plan de pago; compruébalo en tu cuenta antes de depender de esta opción.
 
 ## Decisiones de diseño
 
@@ -171,6 +173,7 @@ Tras desplegar, escribe la URL al inicio de este README.
 ## Limitaciones
 
 - Los qrels de FiQA son incompletos: un documento sin juicio no es necesariamente irrelevante, lo que penaliza a los modelos que recuperan documentos útiles no juzgados.
+- El plan gratuito de Render se suspende por inactividad y su CPU limitada encarece las consultas con embeddings (≈1 s frente a 58 ms en desarrollo).
 - La búsqueda vectorial es exhaustiva (todos los documentos en cada consulta), adecuada para 57 mil documentos pero no para colecciones mucho mayores.
 - El corpus y las consultas están en inglés; los modelos léxicos no resuelven sinónimos ni erratas.
 
