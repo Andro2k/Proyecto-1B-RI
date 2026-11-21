@@ -2,9 +2,13 @@
 
 Solo describen lo que `main.py` ya devuelve: no cambian el comportamiento de los endpoints.
 """
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+ModelId = Literal["jaccard", "tfidf", "bm25", "embeddings"]
+"""Modelos que acepta la API; el selector aparece como lista cerrada en /docs."""
 
 
 class Health(BaseModel):

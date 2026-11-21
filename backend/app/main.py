@@ -15,7 +15,7 @@ from .docstore import DocStore
 from .evaluation import query_metrics
 from .inverted_index import InvertedIndex
 from .registry import ARTIFACTS, build_models
-from .schemas import (AnalysisResponse, CompareResponse, DocResponse, Health, MetricsResponse, ModelInfo,
+from .schemas import (AnalysisResponse, CompareResponse, DocResponse, Health, MetricsResponse, ModelId, ModelInfo,
                       SampleQuery, SearchResponse)
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
@@ -181,9 +181,9 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
         return [{"id": m, "label": LABELS[m]} for m in LABELS if m in rt.models]
 
     @app.get("/api/search", response_model=SearchResponse, response_model_exclude_unset=True, tags=["Búsqueda"],
-             summary="Consultar un modelo", responses={**ERR_LOADING, 404: {"description": "Modelo no disponible."}})
+             summary="Consultar un modelo", responses={**ERR_LOADING, 404: {"description": "Modelo válido pero no cargado (p. ej. embeddings sin su modelo)."}})
     def search(q: str = Query(..., min_length=1, max_length=500, description="Consulta en texto libre."),
-               model: str = Query("bm25", description="Modelo: jaccard, tfidf, bm25 o embeddings."),
+               model: ModelId = Query("bm25", description="Modelo a consultar."),
                k: int = Query(10, ge=1, le=50, description="Cantidad de resultados (top-k).")):
         """Devuelve el ranking del modelo elegido. Si la consulta es una de las de prueba, incluye `relevant` por
         documento y `query_metrics` (Precision, Recall, nDCG y AP) calculadas con los qrels."""
