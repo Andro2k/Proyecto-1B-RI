@@ -15,6 +15,8 @@ from .docstore import DocStore
 from .evaluation import query_metrics
 from .inverted_index import InvertedIndex
 from .registry import ARTIFACTS, build_models
+from .schemas import (AnalysisResponse, CompareResponse, DocResponse, Health, MetricsResponse, ModelId, ModelInfo,
+                      SampleQuery, SearchResponse)
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 LABELS = {
@@ -142,9 +144,23 @@ class Runtime:
         return out
 
 
+TAGS = [
+    {"name": "Sistema", "description": "Estado del servicio y modelos disponibles."},
+    {"name": "Búsqueda", "description": "Consultas de texto libre y comparación entre modelos."},
+    {"name": "Documentos", "description": "Acceso al texto de los documentos del corpus."},
+    {"name": "Evaluación", "description": "Métricas de recuperación y análisis comparativo."},
+]
+ERR_LOADING = {503: {"description": "El sistema todavía está cargando los índices; reintentar en unos segundos."}}
+
+
 def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path | None = None,
                frontend_dir: Path = FRONTEND_DIR, load_async: bool = True) -> FastAPI:
-    app = FastAPI(title="Recuperación de Información · FiQA-2018")
+    app = FastAPI(
+        title="Recuperación de Información · FiQA-2018",
+        description=("Compara cuatro modelos de recuperación (Jaccard binario, TF-IDF con coseno, BM25 y embeddings con FAISS) "
+                     "sobre el corpus FiQA-2018. Todos los endpoints son de solo lectura (GET)."),
+        openapi_tags=TAGS,
+    )
     rt = Runtime(artifacts, embedder, docs_cache_dir)
     app.state.rt = rt
     if load_async:
@@ -152,32 +168,45 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
     else:
         rt.load()
 
-    @app.get("/health")
+    @app.get("/health", response_model=Health, tags=["Sistema"], summary="Estado del servicio")
     def health():
+        """Indica si los índices ya cargaron y qué modelos están disponibles. Responde aunque la carga siga en curso."""
         return {"ready": rt.ready, "error": rt.error, "warnings": rt.warnings, "models": list(rt.models)}
 
-    @app.get("/api/models")
+    @app.get("/api/models", response_model=list[ModelInfo], tags=["Sistema"], summary="Modelos disponibles",
+             responses=ERR_LOADING)
     def models():
+        """Lista los modelos que se pueden consultar (los embeddings faltan si su modelo no pudo cargarse)."""
         rt._need_ready()
         return [{"id": m, "label": LABELS[m]} for m in LABELS if m in rt.models]
 
-    @app.get("/api/search")
-    def search(q: str = Query(..., min_length=1, max_length=500), model: str = "bm25", k: int = Query(10, ge=1, le=50)):
+    @app.get("/api/search", response_model=SearchResponse, response_model_exclude_unset=True, tags=["Búsqueda"],
+             summary="Consultar un modelo", responses={**ERR_LOADING, 404: {"description": "Modelo válido pero no cargado (p. ej. embeddings sin su modelo)."}})
+    def search(q: str = Query(..., min_length=1, max_length=500, description="Consulta en texto libre."),
+               model: ModelId = Query("bm25", description="Modelo a consultar."),
+               k: int = Query(10, ge=1, le=50, description="Cantidad de resultados (top-k).")):
+        """Devuelve el ranking del modelo elegido. Si la consulta es una de las de prueba, incluye `relevant` por
+        documento y `query_metrics` (Precision, Recall, nDCG y AP) calculadas con los qrels."""
         rt._need_ready()
         out = rt.run(model, q, k)
         out["query_known"] = _norm(q) in rt.qid_by_text
         return out
 
-    @app.get("/api/compare")
-    def compare(q: str = Query(..., min_length=1, max_length=500), k: int = Query(10, ge=1, le=50)):
+    @app.get("/api/compare", response_model=CompareResponse, response_model_exclude_unset=True, tags=["Búsqueda"],
+             summary="Comparar todos los modelos", responses=ERR_LOADING)
+    def compare(q: str = Query(..., min_length=1, max_length=500, description="Consulta en texto libre."),
+                k: int = Query(10, ge=1, le=50, description="Cantidad de resultados (top-k).")):
+        """Ejecuta la misma consulta en todos los modelos disponibles y calcula cuántos documentos comparten sus top-k."""
         rt._need_ready()
         runs = {m: rt.run(m, q, k) for m in LABELS if m in rt.models}
         ids = {m: {r["doc_id"] for r in run["results"]} for m, run in runs.items()}
         overlap = {a: {b: len(ids[a] & ids[b]) for b in ids} for a in ids}
         return {"query": _norm(q), "k": k, "query_known": _norm(q) in rt.qid_by_text, "runs": runs, "overlap": overlap}
 
-    @app.get("/api/doc/{doc_id}")
+    @app.get("/api/doc/{doc_id}", response_model=DocResponse, tags=["Documentos"], summary="Texto completo de un documento",
+             responses={**ERR_LOADING, 404: {"description": "Documento no encontrado."}})
     def doc(doc_id: str):
+        """Devuelve el título y el texto completo de un documento del corpus."""
         rt._need_ready()
         found = rt.docs.get_many([doc_id])
         if doc_id not in found:
@@ -185,8 +214,10 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
         title, text = found[doc_id]
         return {"doc_id": doc_id, "title": _clean(title), "text": _clean(text)}
 
-    @app.get("/api/metrics")
+    @app.get("/api/metrics", response_model=MetricsResponse, tags=["Evaluación"], summary="Métricas globales por modelo",
+             responses={**ERR_LOADING, 404: {"description": "Aún no se ejecutó la evaluación."}})
     def metrics():
+        """Promedios sobre las consultas de prueba (Precision, Recall, nDCG y MAP@100) y latencia media por modelo."""
         rt._need_ready()
         if not rt.metrics:
             raise HTTPException(404, "Aún no hay métricas: ejecuta backend.scripts.run_eval")
@@ -194,16 +225,21 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
                   for m, v in rt.metrics.items() if not m.startswith("_") and m in LABELS}
         return {"config": rt.metrics.get("_config", {}), "models": models, "order": [m for m in LABELS if m in models]}
 
-    @app.get("/api/analysis")
+    @app.get("/api/analysis", response_model=AnalysisResponse, tags=["Evaluación"], summary="Embeddings frente a BM25",
+             responses={**ERR_LOADING, 404: {"description": "Aún no se generó el análisis."}})
     def analysis():
+        """Comparación consulta por consulta (AP): victorias de cada modelo, diferencia media con IC 95 %, resultados
+        por tipo de consulta y los casos donde la recuperación semántica más mejora o empeora."""
         rt._need_ready()
         if not rt.analysis:
             raise HTTPException(404, "Aún no hay análisis: ejecuta backend.scripts.compare_models")
         # a = modelo semántico, b = línea base léxica; "a_mejora_mas"/"a_empeora_mas" se miden con AP
         return {"a": "embeddings", "b": "bm25", "labels": {"a": LABELS["embeddings"], "b": LABELS["bm25"]}, **rt.analysis}
 
-    @app.get("/api/sample-queries")
+    @app.get("/api/sample-queries", response_model=list[SampleQuery], tags=["Búsqueda"],
+             summary="Consultas de ejemplo", responses=ERR_LOADING)
     def sample_queries():
+        """Consultas de prueba con qrels, elegidas para mostrar dónde gana cada modelo."""
         rt._need_ready()
         return rt.samples
 
