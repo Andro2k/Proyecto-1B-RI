@@ -1,0 +1,104 @@
+{
+  "n": 648,
+  "mean_a": 0.3095593644375456,
+  "mean_b": 0.14049592672261327,
+  "a_gana": 450,
+  "b_gana": 102,
+  "empates": 96,
+  "diff_media": 0.16906343771493235,
+  "ic95": [
+    0.14601228930905963,
+    0.1925348876183693
+  ],
+  "buckets": {
+    "consulta corta (<= 6 palabras)": {
+      "n": 106,
+      "a": 0.23005741794162068,
+      "b": 0.1057459797151989
+    },
+    "consulta media (7-12 palabras)": {
+      "n": 312,
+      "a": 0.3227201061703027,
+      "b": 0.14370807685944978
+    },
+    "consulta larga (> 12 palabras)": {
+      "n": 230,
+      "a": 0.32834655968949267,
+      "b": 0.15215376820127816
+    },
+    "contiene cifras": {
+      "n": 73,
+      "a": 0.27352045569006445,
+      "b": 0.15010543897950568
+    },
+    "contiene siglas/tickers (MAYÚSCULAS)": {
+      "n": 118,
+      "a": 0.41383657470736274,
+      "b": 0.21282829579678125
+    }
+  },
+  "a_mejora_mas": [
+    {
+      "qid": "9824",
+      "query": "Where can end-of-day data be downloaded for corporate bonds?",
+      "a": 1.0,
+      "b": 0.0
+    },
+    {
+      "qid": "2747",
+      "query": "What evidence do I need to declare tutoring income on my income tax?",
+      "a": 1.0,
+      "b": 0.0
+    },
+    {
+      "qid": "2076",
+      "query": "Can vet / veterinary bills be considered deductions (tax-deductible) for Income Tax purposes [Canada]?",
+      "a": 1.0,
+      "b": 0.0
+    },
+    {
+      "qid": "4484",
+      "query": "Has the likelihood of getting a lower interest rate by calling & asking been reduced by recent credit card regulations?",
+      "a": 1.0,
+      "b": 0.0
+    },
+    {
+      "qid": "6800",
+      "query": "I don't live in America. How can I buy IPO stock of newly listed companies in the United States?",
+      "a": 1.0,
+      "b": 0.0
+    }
+  ],
+  "a_empeora_mas": [
+    {
+      "qid": "6410",
+      "query": "Will an ETF immediately reflect a reconstitution of underlying index",
+      "a": 0.0,
+      "b": 1.0
+    },
+    {
+      "qid": "1310",
+      "query": "Is is possible to take a mortgage using Bitcoin as collateral?",
+      "a": 0.0,
+      "b": 1.0
+    },
+    {
+      "qid": "9329",
+      "query": "Interactive Brokers: IOPTS and list of structured products",
+      "a": 0.006493506493506494,
+      "b": 1.0
+    },
+    {
+      "qid": "5155",
+      "query": "For insurance, why should you refuse $4,000/year for only 10 years and prefer $500/year indefinitely?",
+      "a": 0.047619047619047616,
+      "b": 1.0
+    },
+    {
+      "qid": "1469",
+      "query": "Why do some companies report how well their EBITDA performed even if their overall net profit did equally well?",
+      "a": 0.09090909090909091,
+      "b": 1.0
+    }
+  ]
+}
