@@ -15,6 +15,8 @@ from .docstore import DocStore
 from .evaluation import query_metrics
 from .inverted_index import InvertedIndex
 from .registry import ARTIFACTS, build_models
+from .schemas import (AnalysisResponse, CompareResponse, DocResponse, Health, MetricsResponse, ModelInfo,
+                      SampleQuery, SearchResponse)
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 LABELS = {
@@ -152,23 +154,23 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
     else:
         rt.load()
 
-    @app.get("/health")
+    @app.get("/health", response_model=Health)
     def health():
         return {"ready": rt.ready, "error": rt.error, "warnings": rt.warnings, "models": list(rt.models)}
 
-    @app.get("/api/models")
+    @app.get("/api/models", response_model=list[ModelInfo])
     def models():
         rt._need_ready()
         return [{"id": m, "label": LABELS[m]} for m in LABELS if m in rt.models]
 
-    @app.get("/api/search")
+    @app.get("/api/search", response_model=SearchResponse, response_model_exclude_unset=True)
     def search(q: str = Query(..., min_length=1, max_length=500), model: str = "bm25", k: int = Query(10, ge=1, le=50)):
         rt._need_ready()
         out = rt.run(model, q, k)
         out["query_known"] = _norm(q) in rt.qid_by_text
         return out
 
-    @app.get("/api/compare")
+    @app.get("/api/compare", response_model=CompareResponse, response_model_exclude_unset=True)
     def compare(q: str = Query(..., min_length=1, max_length=500), k: int = Query(10, ge=1, le=50)):
         rt._need_ready()
         runs = {m: rt.run(m, q, k) for m in LABELS if m in rt.models}
@@ -176,7 +178,7 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
         overlap = {a: {b: len(ids[a] & ids[b]) for b in ids} for a in ids}
         return {"query": _norm(q), "k": k, "query_known": _norm(q) in rt.qid_by_text, "runs": runs, "overlap": overlap}
 
-    @app.get("/api/doc/{doc_id}")
+    @app.get("/api/doc/{doc_id}", response_model=DocResponse)
     def doc(doc_id: str):
         rt._need_ready()
         found = rt.docs.get_many([doc_id])
@@ -185,7 +187,7 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
         title, text = found[doc_id]
         return {"doc_id": doc_id, "title": _clean(title), "text": _clean(text)}
 
-    @app.get("/api/metrics")
+    @app.get("/api/metrics", response_model=MetricsResponse)
     def metrics():
         rt._need_ready()
         if not rt.metrics:
@@ -194,7 +196,7 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
                   for m, v in rt.metrics.items() if not m.startswith("_") and m in LABELS}
         return {"config": rt.metrics.get("_config", {}), "models": models, "order": [m for m in LABELS if m in models]}
 
-    @app.get("/api/analysis")
+    @app.get("/api/analysis", response_model=AnalysisResponse)
     def analysis():
         rt._need_ready()
         if not rt.analysis:
@@ -202,7 +204,7 @@ def create_app(artifacts: Path = ARTIFACTS, embedder=None, docs_cache_dir: Path 
         # a = modelo semántico, b = línea base léxica; "a_mejora_mas"/"a_empeora_mas" se miden con AP
         return {"a": "embeddings", "b": "bm25", "labels": {"a": LABELS["embeddings"], "b": LABELS["bm25"]}, **rt.analysis}
 
-    @app.get("/api/sample-queries")
+    @app.get("/api/sample-queries", response_model=list[SampleQuery])
     def sample_queries():
         rt._need_ready()
         return rt.samples
