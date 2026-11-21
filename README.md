@@ -37,7 +37,9 @@ Evaluación sobre las **648 consultas de prueba** (los parámetros se eligieron 
 
 \* Tiempo medio por consulta en la máquina de desarrollo; el de embeddings incluye calcular el embedding de la consulta.
 
-**Embeddings frente a BM25** (`uv run python -m backend.scripts.compare_models --a embeddings --b bm25`): diferencia media de AP de +0.1054 (IC 95 % bootstrap pareado: +0.083 a +0.128). Embeddings gana en 393 consultas, BM25 en 147 y empatan 108. La ventaja es mayor en consultas largas (+0.124) que en cortas (+0.073). BM25 gana sobre todo con consultas muy breves o de términos concretos (p. ej. «Bitcoin Cost Basis Purchases», «How does pre-market trading work?»); embeddings gana cuando la consulta y la respuesta no comparten vocabulario.
+**Embeddings frente a BM25** (`uv run python -m backend.scripts.compare_models --a embeddings --b bm25`): diferencia media de AP de +0.1054 (IC 95 % bootstrap pareado: +0.083 a +0.128). Embeddings gana en 393 consultas, BM25 en 147 y empatan 108. La ventaja se mantiene en todos los tipos de consulta analizados: cortas (+0.073), largas (+0.124), con cifras (+0.085) y con siglas o tickers (+0.111). BM25 gana en consultas puntuales (p. ej. «Bitcoin Cost Basis Purchases», «How does pre-market trading work?»), pero ningún tipo de consulta analizado lo favorece en promedio; embeddings gana sobre todo cuando la consulta y la respuesta no comparten vocabulario.
+
+**Embeddings frente a TF-IDF** (`uv run python -m backend.scripts.compare_models --a embeddings --b tfidf`, salida en `backend/artifacts/comparison_embeddings_vs_tfidf.json`): diferencia media de AP de +0.1691 (IC 95 %: +0.146 a +0.193). Embeddings gana en 450 consultas, TF-IDF en 102 y empatan 96.
 
 Nota: Precision@10 es baja para todos porque cada consulta tiene pocos documentos relevantes (2.6 en promedio) y los qrels de FiQA son incompletos.
 
@@ -165,7 +167,7 @@ La web y la API se sirven desde un solo servicio (FastAPI también entrega `fron
 
 - **Preprocesamiento único** para documentos y consultas: minúsculas, tokens alfanuméricos, 198 stopwords en inglés y stemming Snowball (`py-rust-stemmers`, elegido en lugar de NLTK porque este último consume ~150 MB de RAM solo al importarse). Los embeddings usan el texto original, sin stemming ni stopwords.
 - **Modelos clásicos propios** sobre un índice invertido (`término → documentos y frecuencias`), guardado en arreglos contiguos para reducir la memoria. Las variantes de TF-IDF y los parámetros de BM25 siguen las convenciones de la asignatura y se verifican con sus ejemplos numéricos.
-- **Parámetros elegidos en desarrollo, no en prueba:** `tune.py` explora k1 y b de BM25 y las variantes de TF-IDF en las consultas de desarrollo. La mejora de BM25 sobre los valores de clase (k1 = 1.2, b = 0.75) es pequeña (~0.003 de MAP@100 en desarrollo).
+- **Parámetros elegidos en desarrollo, no en prueba:** `tune.py` explora k1 y b de BM25 y las variantes de TF-IDF en las consultas de desarrollo. La mejora de BM25 sobre los valores de clase (k1 = 1.2, b = 0.75) es pequeña (~0.003 de MAP@100 en desarrollo). La configuración elegida está en `backend/artifacts/config.json` (BM25: k1 = 0.6, b = 0.9).
 - **Embeddings:** `all-MiniLM-L6-v2` (384 dimensiones), vectores normalizados y FAISS con producto interno (equivale al coseno). El índice se guarda en fp16 (~44 MB) y los textos se truncan a 256 tokens.
 - **Evaluación:** relevante si `rel ≥ 1`; Precision@k, Recall@k y nDCG@k por consulta, y MAP@100 para el sistema. Los documentos sin juicio cuentan como no relevantes; las convenciones están documentadas en `backend/app/evaluation.py`.
 - **La web compara posiciones y documentos, no scores**: BM25 y el coseno usan escalas distintas y no son comparables entre sí.
