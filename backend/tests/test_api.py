@@ -75,6 +75,7 @@ def main() -> None:
         spec = c.get("/openapi.json").json()  # cada endpoint debe documentar la forma de su respuesta
         for path, ops in spec["paths"].items():
             assert ops["get"]["responses"]["200"]["content"]["application/json"]["schema"], f"{path} sin esquema de respuesta"
+            assert ops["get"].get("tags") and ops["get"].get("summary"), f"{path} sin tag ni resumen"
         assert c.get("/api/search", params={"q": ""}).status_code == 422
         assert c.get("/api/search", params={"q": q, "k": 99}).status_code == 422
         none = c.get("/api/search", params={"q": "zzzz qqqq", "model": "bm25"}).json()  # sin términos en común
